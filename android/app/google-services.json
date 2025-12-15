@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "946830288694",
+    "project_id": "clickdoc-7a312",
+    "storage_bucket": "clickdoc-7a312.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:946830288694:android:cdca8f57c07267c12a3597",
+        "android_client_info": {
+          "package_name": "com.example.clickdoc1"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "946830288694-vbert0dktiu7peffff8mup7s03a76t42.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.clickdoc1",
+            "certificate_hash": "dc980a460f7cbecea8308656aca58755017e0b81"
+          }
+        },
+        {
+          "client_id": "946830288694-ou1chk9p9bf4ehr23euct1ailqjere37.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWYKXYGQMAKaLpBhIZBoK-xeYEyHe0RBc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "946830288694-ou1chk9p9bf4ehr23euct1ailqjere37.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "946830288694-6c1jvp36q9cbteu3982i48psgp06i618.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.clickdoc1"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
