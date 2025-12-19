@@ -1,5 +1,6 @@
 class DoctorOnlineClinicModel {
   final String id;
+  final String doctorId;
   final String doctorName;
   final String doctorQualification;
   final String department;
@@ -13,6 +14,7 @@ class DoctorOnlineClinicModel {
 
   DoctorOnlineClinicModel({
     required this.id,
+    required this.doctorId,
     required this.doctorName,
     required this.doctorQualification,
     required this.department,

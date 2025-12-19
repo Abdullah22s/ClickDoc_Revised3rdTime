@@ -24,7 +24,6 @@ class SearchDoctorBySymptomView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Dynamic dropdown list
                   ...List.generate(
                     vm.selectedSymptoms.length,
                         (index) => Padding(
@@ -35,16 +34,22 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                             child: DropdownButtonFormField<String>(
                               value: vm.selectedSymptoms[index],
                               items: vm.symptoms
-                                  .map((s) =>
-                                  DropdownMenuItem(value: s, child: Text(s)))
+                                  .map((s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(s),
+                              ))
                                   .toList(),
                               onChanged: (val) =>
                                   vm.updateSelectedSymptom(index, val),
                               decoration: InputDecoration(
-                                labelText: "Select Symptom",
+                                labelText: index == 0
+                                    ? "What are you feeling?"
+                                    : "Are you also feeling any of these?",
                                 border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                                contentPadding: const EdgeInsets.symmetric(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                contentPadding:
+                                const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 8),
                               ),
                             ),
@@ -52,16 +57,20 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                           const SizedBox(width: 8),
                           if (vm.selectedSymptoms.length > 1)
                             IconButton(
-                              icon: const Icon(Icons.remove_circle,
-                                  color: Colors.redAccent),
-                              onPressed: () => vm.removeSymptomField(index),
+                              icon: const Icon(
+                                Icons.remove_circle,
+                                color: Colors.redAccent,
+                              ),
+                              onPressed: () =>
+                                  vm.removeSymptomField(index),
                             ),
                         ],
                       ),
                     ),
                   ),
 
-                  // Add Symptom Button
+                  const SizedBox(height: 10),
+
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
@@ -70,9 +79,9 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                       label: const Text("Add Symptom"),
                     ),
                   ),
+
                   const SizedBox(height: 10),
 
-                  // Search Button
                   ElevatedButton.icon(
                     onPressed: vm.searchDoctors,
                     icon: const Icon(Icons.search),
@@ -82,24 +91,30 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                       backgroundColor: Colors.blueAccent,
                     ),
                   ),
+
                   const SizedBox(height: 20),
 
-                  // Results Section
                   if (vm.isLoading)
                     const Center(child: CircularProgressIndicator())
                   else if (vm.matchedDoctors.isEmpty)
-                    const Text("No doctors found",
-                        style: TextStyle(color: Colors.grey))
+                    const Text(
+                      "No doctors found",
+                      style: TextStyle(color: Colors.grey),
+                    )
                   else
                     Expanded(
                       child: ListView.builder(
                         itemCount: vm.matchedDoctors.length,
                         itemBuilder: (context, index) {
-                          final doc = vm.matchedDoctors[index];
-                          final name = doc['doctorName'] ??
-                              doc['name'] ??
-                              doc['doctor_name'] ??
-                              'Unknown Doctor';
+                          final doctor = vm.matchedDoctors[index];
+                          final name = doctor['doctorName'] ?? 'Unknown';
+                          final mainDep =
+                              doctor['mainDepartment'] ?? 'Unknown Department';
+
+                          final clinics = [
+                            ...doctor['opds'] as List,
+                            ...doctor['onlineClinics'] as List
+                          ];
 
                           return Card(
                             shape: RoundedRectangleBorder(
@@ -108,18 +123,34 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                             elevation: 3,
                             margin:
                             const EdgeInsets.symmetric(vertical: 6),
-                            child: ListTile(
-                              leading: const Icon(Icons.person,
-                                  color: Colors.blueAccent),
-                              title: Text(name),
-                              subtitle:
-                              Text(doc['department'] ?? 'Unknown Department'),
-                              trailing: Text(
-                                doc['type'] ?? '',
-                                style: const TextStyle(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold),
+                            child: ExpansionTile(
+                              leading: const Icon(
+                                Icons.person,
+                                color: Colors.blueAccent,
                               ),
+                              title: Text(name),
+                              subtitle: Text(mainDep),
+                              children: clinics.map<Widget>((c) {
+                                final days =
+                                    (c['days'] as List?)?.join(', ') ?? '';
+                                final timing =
+                                    '${c['startTime'] ?? ''} - ${c['endTime'] ?? ''}';
+                                final type = c['type'] ?? '';
+
+                                return ListTile(
+                                  title: Text(c['department'] ?? ''),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Type: $type'),
+                                      if (days.isNotEmpty) Text('Days: $days'),
+                                      if (timing.trim().isNotEmpty)
+                                        Text('Time: $timing'),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           );
                         },

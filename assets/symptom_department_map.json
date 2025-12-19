@@ -1,44 +1,121 @@
 {
   "fever": ["General Medicine", "Pediatrician", "Infectious Diseases"],
+  "high fever": ["General Medicine", "Infectious Diseases"],
+  "low grade fever": ["General Medicine"],
+
   "cough": ["Pulmonology", "General Medicine", "ENT"],
+  "dry cough": ["Pulmonology"],
+  "wet cough": ["Pulmonology", "General Medicine"],
+  "chronic cough": ["Pulmonology"],
+
   "shortness of breath": ["Pulmonology", "Cardiology"],
+  "breathing difficulty": ["Pulmonology", "Cardiology"],
+  "wheezing": ["Pulmonology"],
+
   "chest pain": ["Cardiology", "General Medicine"],
+  "left chest pain": ["Cardiology"],
+  "chest tightness": ["Cardiology"],
+
   "palpitations": ["Cardiology"],
+  "irregular heartbeat": ["Cardiology"],
+
   "headache": ["Neurology", "General Medicine"],
+  "severe headache": ["Neurology"],
+  "migraine": ["Neurology"],
+
   "dizziness": ["Neurology", "ENT", "General Medicine"],
+  "vertigo": ["ENT", "Neurology"],
+  "loss of balance": ["ENT", "Neurology"],
+
   "seizures": ["Neurology"],
+  "fits": ["Neurology"],
+
   "weakness": ["Neurology", "General Medicine"],
+  "fatigue": ["General Medicine", "Endocrinology"],
+
   "numbness": ["Neurology"],
+  "tingling sensation": ["Neurology"],
+
   "rash": ["Dermatology", "Allergy"],
   "itching": ["Dermatology", "Allergy"],
+  "skin redness": ["Dermatology"],
+
   "skin lesion": ["Dermatology"],
+  "acne": ["Dermatology"],
+  "eczema": ["Dermatology", "Allergy"],
+
   "joint pain": ["Orthopedics", "Rheumatology"],
+  "knee pain": ["Orthopedics"],
+  "arthritis": ["Rheumatology", "Orthopedics"],
+
   "back pain": ["Orthopedics", "Physiotherapy"],
+  "lower back pain": ["Orthopedics", "Physiotherapy"],
+  "neck pain": ["Orthopedics", "Physiotherapy"],
+
   "toothache": ["Dentist"],
   "tooth sensitivity": ["Dentist"],
+  "gum bleeding": ["Dentist"],
+
   "abdominal pain": ["Gastroenterology", "General Surgery"],
+  "stomach pain": ["Gastroenterology"],
+  "epigastric pain": ["Gastroenterology"],
+
   "nausea": ["Gastroenterology", "General Medicine"],
   "vomiting": ["Gastroenterology", "General Medicine"],
+  "persistent vomiting": ["Gastroenterology"],
+
   "diarrhea": ["Gastroenterology", "Infectious Diseases"],
+  "loose motions": ["Gastroenterology", "Infectious Diseases"],
+
   "constipation": ["Gastroenterology"],
   "blood in stool": ["Gastroenterology", "General Surgery"],
+
   "urinary pain": ["Urology", "Nephrology"],
+  "burning urination": ["Urology"],
   "blood in urine": ["Urology", "Nephrology"],
   "frequent urination": ["Urology", "Endocrinology"],
+
   "male sexual dysfunction": ["Urology"],
+  "erectile dysfunction": ["Urology"],
+
   "female pelvic pain": ["Gynecologist"],
   "irregular periods": ["Gynecologist", "Endocrinology"],
+  "heavy periods": ["Gynecologist"],
+
   "infertility": ["Gynecologist", "Urology"],
+
   "vision problems": ["Ophthalmology", "Neurology"],
+  "blurred vision": ["Ophthalmology"],
+  "eye pain": ["Ophthalmology"],
+
   "ear pain": ["ENT"],
   "hearing loss": ["ENT"],
+  "ear discharge": ["ENT"],
+
   "sore throat": ["ENT", "General Medicine"],
+  "difficulty swallowing": ["ENT"],
+
   "swollen glands": ["ENT", "Infectious Diseases"],
+
   "anxiety": ["Psychiatry", "Psychology"],
+  "panic attacks": ["Psychiatry"],
+
   "depression": ["Psychiatry", "Psychology"],
+  "low mood": ["Psychiatry"],
+
   "insomnia": ["Psychiatry", "Neurology", "General Medicine"],
+  "sleep problems": ["Psychiatry", "Neurology"],
+
   "weight loss": ["Endocrinology", "Oncology", "Gastroenterology"],
+  "unintentional weight loss": ["Endocrinology", "Oncology"],
+
   "weight gain": ["Endocrinology"],
+  "obesity": ["Endocrinology"],
+
   "hair loss": ["Dermatology", "Endocrinology"],
-  "allergic symptoms": ["Allergy", "Dermatology", "ENT"]
+  "baldness": ["Dermatology"],
+
+  "allergic symptoms": ["Allergy", "Dermatology", "ENT"],
+  "sneezing": ["Allergy", "ENT"],
+  "runny nose": ["Allergy", "ENT"]
 }

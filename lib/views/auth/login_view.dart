@@ -6,7 +6,7 @@ import '../../services/google_signin_service.dart';
 import 'role_selection_view.dart';
 import 'package:clickdoc1/views/patient/patient_dashboard_view.dart';
 import 'package:clickdoc1/views/doctor/doctor_dashboard_view.dart';
-import '../../viewmodels/doctor/doctor_dashboard_viewmodel.dart';
+import 'package:clickdoc1/viewmodels/doctor/doctor_dashboard_viewmodel.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -45,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
 
       if (doctorQuery.docs.isNotEmpty) {
-        // Create the view model
         final viewModel = DoctorDashboardViewModel(
           userName: name,
           userEmail: email,
@@ -103,9 +102,9 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF2563EB),
-              Color(0xFF4FC3F7),
-              Color(0xFF50C9C3),
+              Color(0xFFE3F2FD), // Light blue top
+              Color(0xFF90CAF9), // Soft blue middle
+              Color(0xFF64B5F6), // Slightly deeper blue bottom
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -115,14 +114,30 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: _isLoading
-                ? const CircularProgressIndicator(color: Colors.white)
+                ? const CircularProgressIndicator(color: Color(0xFF1565C0))
                 : Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.local_hospital_rounded,
-                  color: Colors.white,
-                  size: 80,
+                // Rounded hospital icon
+                Container(
+                  height: 100,
+                  width: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 20,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.local_hospital_rounded,
+                    color: Color(0xFF1565C0),
+                    size: 60,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
@@ -137,10 +152,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 12),
                 const Text(
                   'Book appointments with ease',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
+
+                // Google Sign-In Button
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -160,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
-                      shadowColor: Colors.black.withOpacity(0.1),
+                      shadowColor: Colors.black.withOpacity(0.15),
                       elevation: 6,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),

@@ -13,9 +13,9 @@ class WelcomeScreen extends StatelessWidget {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF1565C0), // Deep blue top
-              Color(0xFF42A5F5), // Bright blue
-              Color(0xFF50C9C3), // Soft teal bottom
+              Color(0xFFE3F2FD), // Light blue top
+              Color(0xFF90CAF9), // Soft blue middle
+              Color(0xFF64B5F6), // Slightly deeper blue bottom
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -35,7 +35,7 @@ class WelcomeScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0x804A90E2),
+                        color: Color(0x8042A5F5), // Light blue shadow
                         blurRadius: 25,
                         spreadRadius: 4,
                         offset: Offset(0, 10),
@@ -74,14 +74,14 @@ class WelcomeScreen extends StatelessWidget {
                   'Your smart healthcare companion.\nBook appointments with ease.',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.black,
+                    color: Colors.white70,
                     height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 45),
 
-                // Get Started Button (blended style)
+                // Get Started Button (white with soft blue accent)
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -118,7 +118,7 @@ class WelcomeScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: Color(0xFF1565C0), // Deep blue text
                         letterSpacing: 0.5,
                       ),
                     ),

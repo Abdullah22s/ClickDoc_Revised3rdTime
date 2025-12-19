@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/patient/patient_online_viewmodel.dart';
-import '../../models/patient/patient_online_model.dart';
+import '../../models/doctor/doctor_online_clinic_model.dart';
+import 'book_online_appointment_view.dart';
 
 class PatientOnlineDoctorsView extends StatelessWidget {
   const PatientOnlineDoctorsView({super.key});
@@ -19,7 +20,7 @@ class PatientOnlineDoctorsView extends StatelessWidget {
             ),
             body: Column(
               children: [
-                // 🔍 Search bar
+                // Search bar
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: TextField(
@@ -40,8 +41,7 @@ class PatientOnlineDoctorsView extends StatelessWidget {
                     onChanged: vm.updateSearch,
                   ),
                 ),
-
-                // 🩺 Doctors list
+                // Doctors List
                 Expanded(
                   child: StreamBuilder(
                     stream: vm.doctorsStream,
@@ -49,14 +49,13 @@ class PatientOnlineDoctorsView extends StatelessWidget {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
-
                       if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                         return const Center(child: Text("No online doctors available."));
                       }
 
                       final docs = snapshot.data!.docs;
 
-                      return FutureBuilder<List<PatientOnlineModel>>(
+                      return FutureBuilder<List<DoctorOnlineClinicModel>>(
                         future: Future.wait(docs.map((doc) => vm.doctorFromSnapshot(doc))),
                         builder: (context, doctorSnapshot) {
                           if (!doctorSnapshot.hasData) {
@@ -91,9 +90,8 @@ class PatientOnlineDoctorsView extends StatelessWidget {
                                         backgroundColor: Colors.teal,
                                         child: Icon(Icons.video_call, color: Colors.white),
                                       ),
-                                      title: Text("Dr. ${doctor.name}"),
-                                      subtitle: Text(
-                                          doctor.clinics.isNotEmpty ? doctor.clinics.first.department : 'Not specified'),
+                                      title: Text("Dr. ${doctor.doctorName}"),
+                                      subtitle: Text(doctor.department),
                                       trailing: IconButton(
                                         icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
                                         onPressed: () => vm.toggleDoctorExpansion(doctor.id),
@@ -103,9 +101,9 @@ class PatientOnlineDoctorsView extends StatelessWidget {
                                       Padding(
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                         child: Column(
-                                          children: doctor.clinics
-                                              .map((clinic) => ClinicWidget(clinic: clinic, doctorName: doctor.name))
-                                              .toList(),
+                                          children: [
+                                            BookableClinicWidget(clinic: doctor),
+                                          ],
                                         ),
                                       ),
                                   ],
@@ -127,33 +125,41 @@ class PatientOnlineDoctorsView extends StatelessWidget {
   }
 }
 
-class ClinicWidget extends StatelessWidget {
-  final ClinicModel clinic;
-  final String doctorName;
+// Each clinic card with Book button
+class BookableClinicWidget extends StatelessWidget {
+  final DoctorOnlineClinicModel clinic;
 
-  const ClinicWidget({super.key, required this.clinic, required this.doctorName});
+  const BookableClinicWidget({super.key, required this.clinic});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.teal.shade50,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Days: ${clinic.days.join(', ')}", style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(clinic.department, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 4),
+          Text("Days: ${clinic.days.join(', ')}"),
           Text("Time: ${clinic.startTime} - ${clinic.endTime}"),
           Text("Fees: PKR ${clinic.fees}"),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           const Text("Available Slots:", style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          ...clinic.slots.map((slot) => Text("${slot['start']} - ${slot['end']}")),
+          // Show all slots
+          ...clinic.slots.map(
+                (slot) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text("${slot.start} - ${slot.end}"),
+            ),
+          ),
           const SizedBox(height: 12),
+          // Single "Book Appointment" button
           Center(
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
@@ -164,8 +170,11 @@ class ClinicWidget extends StatelessWidget {
               icon: const Icon(Icons.event_available),
               label: const Text("Book Appointment", style: TextStyle(fontSize: 16)),
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Booking feature coming soon for Dr. $doctorName")),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BookOnlineAppointmentView(clinic: clinic),
+                  ),
                 );
               },
             ),

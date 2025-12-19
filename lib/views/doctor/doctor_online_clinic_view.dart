@@ -11,11 +11,6 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
       create: (_) => DoctorOnlineClinicViewModel(),
       child: Consumer<DoctorOnlineClinicViewModel>(
         builder: (context, vm, _) {
-          final days = [
-            'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-            'Friday', 'Saturday', 'Sunday'
-          ];
-
           return Scaffold(
             appBar: AppBar(
               title: const Text("Online Clinic Setup"),
@@ -26,52 +21,123 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Dr. ${vm.doctorName} (${vm.doctorQualification})",
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 12),
-                  const Text("Department / Specialization",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: vm.selectedDepartment.isNotEmpty ? vm.selectedDepartment : null,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: "Select Department",
+
+                  /// -------- DOCTOR INFO --------
+                  Text(
+                    "Dr. ${vm.doctorName} (${vm.doctorQualification})",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
-                    items: vm.departments.map((dept) {
-                      return DropdownMenuItem(value: dept, child: Text(dept));
-                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  /// -------- DATE PICKER --------
+                  ElevatedButton(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 180)),
+                      );
+                      if (picked != null) {
+                        vm.setSelectedDate(picked);
+                      }
+                    },
+                    child: Text(
+                      vm.selectedDate == null
+                          ? "Select Date"
+                          : "Date: ${vm.selectedDate!.toLocal().toString().split(' ')[0]}",
+                    ),
+                  ),
+
+                  if (vm.selectedDays.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      "Selected Day: ${vm.selectedDays.first}",
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ],
+
+                  const SizedBox(height: 12),
+
+                  /// -------- REPEAT WEEKS --------
+                  DropdownButtonFormField<int>(
+                    value: vm.repeatWeeks,
+                    decoration: const InputDecoration(
+                      labelText: "Apply Schedule For",
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text("Only this date")),
+                      DropdownMenuItem(value: 2, child: Text("Next 2 weeks")),
+                      DropdownMenuItem(value: 4, child: Text("Next 4 weeks")),
+                    ],
                     onChanged: (val) {
-                      if (val != null) vm.selectedDepartment = val;
+                      if (val != null) vm.setRepeatWeeks(val);
                     },
                   ),
+
+                  const SizedBox(height: 8),
+
+                  /// -------- GENERATED DATES --------
+                  if (vm.getGeneratedDates().isNotEmpty) ...[
+                    const Text(
+                      "Applies On:",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    ...vm.getGeneratedDates().map(
+                          (d) => Text(
+                        "• ${d.toLocal().toString().split(' ')[0]}",
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 16),
-                  const Text("Select Days", style: TextStyle(fontWeight: FontWeight.bold)),
-                  Wrap(
-                    spacing: 8,
-                    children: days.map((day) {
-                      final isSelected = vm.selectedDays.contains(day);
-                      return ChoiceChip(
-                        label: Text(day),
-                        selected: isSelected,
-                        onSelected: (_) => vm.toggleDay(day),
-                      );
-                    }).toList(),
+
+                  /// -------- DEPARTMENT --------
+                  DropdownButtonFormField<String>(
+                    value: vm.selectedDepartment.isEmpty
+                        ? null
+                        : vm.selectedDepartment,
+                    decoration: const InputDecoration(
+                      labelText: "Department / Specialization",
+                      border: OutlineInputBorder(),
+                    ),
+                    items: vm.departments
+                        .map(
+                          (d) => DropdownMenuItem(
+                        value: d,
+                        child: Text(d),
+                      ),
+                    )
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) vm.setDepartment(val);
+                    },
                   ),
+
                   const SizedBox(height: 16),
+
+                  /// -------- TIME PICKERS --------
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
                             final picked = await showTimePicker(
-                                context: context,
-                                initialTime: TimeOfDay.now());
-                            if (picked != null) vm.startTime = picked;
+                              context: context,
+                              initialTime: TimeOfDay.now(),
+                            );
+                            if (picked != null) vm.setStartTime(picked);
                           },
-                          child: Text(vm.startTime == null
-                              ? "Select Start Time"
-                              : "Start: ${vm.startTime!.format(context)}"),
+                          child: Text(
+                            vm.startTime == null
+                                ? "Start Time"
+                                : "Start: ${vm.formatTime(vm.startTime!)}",
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -79,18 +145,24 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
                         child: ElevatedButton(
                           onPressed: () async {
                             final picked = await showTimePicker(
-                                context: context,
-                                initialTime: TimeOfDay.now());
-                            if (picked != null) vm.endTime = picked;
+                              context: context,
+                              initialTime: TimeOfDay.now(),
+                            );
+                            if (picked != null) vm.setEndTime(picked);
                           },
-                          child: Text(vm.endTime == null
-                              ? "Select End Time"
-                              : "End: ${vm.endTime!.format(context)}"),
+                          child: Text(
+                            vm.endTime == null
+                                ? "End Time"
+                                : "End: ${vm.formatTime(vm.endTime!)}",
+                          ),
                         ),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 16),
+
+                  /// -------- FEES --------
                   TextField(
                     controller: vm.feesController,
                     keyboardType: TextInputType.number,
@@ -99,7 +171,10 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
                       border: OutlineInputBorder(),
                     ),
                   ),
+
                   const SizedBox(height: 16),
+
+                  /// -------- DURATIONS --------
                   Row(
                     children: [
                       Expanded(
@@ -109,11 +184,16 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
                             labelText: "Appointment Duration (min)",
                             border: OutlineInputBorder(),
                           ),
-                          items: vm.appointmentOptions.map((val) {
-                            return DropdownMenuItem(value: val, child: Text("$val min"));
-                          }).toList(),
+                          items: vm.appointmentOptions
+                              .map(
+                                (v) => DropdownMenuItem(
+                              value: v,
+                              child: Text("$v min"),
+                            ),
+                          )
+                              .toList(),
                           onChanged: (val) {
-                            if (val != null) vm.appointmentDuration = val;
+                            if (val != null) vm.setAppointmentDuration(val);
                           },
                         ),
                       ),
@@ -125,33 +205,75 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
                             labelText: "Buffer Duration (min)",
                             border: OutlineInputBorder(),
                           ),
-                          items: vm.bufferOptions.map((val) {
-                            return DropdownMenuItem(value: val, child: Text("$val min"));
-                          }).toList(),
+                          items: vm.bufferOptions
+                              .map(
+                                (v) => DropdownMenuItem(
+                              value: v,
+                              child: Text("$v min"),
+                            ),
+                          )
+                              .toList(),
                           onChanged: (val) {
-                            if (val != null) vm.bufferDuration = val;
+                            if (val != null) vm.setBufferDuration(val);
                           },
                         ),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 24),
+
+                  /// -------- SLOT PREVIEW --------
+                  if (vm.previewSlots.isNotEmpty) ...[
+                    const Text(
+                      "Preview Slots",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    ...vm.previewSlots.map(
+                          (s) => Text("${s.start} - ${s.end}"),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  /// -------- SAVE BUTTON --------
                   Center(
                     child: ElevatedButton(
                       onPressed: vm.isSaving ? null : vm.saveClinic,
-                      child: Text(vm.isSaving ? "Saving..." : "Save Online Clinic"),
+                      child: Text(
+                        vm.isSaving ? "Saving..." : "Save Online Clinic",
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  if (vm.startTime != null && vm.endTime != null)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("Preview Slots:", style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        ...vm.generateSlots().map((slot) => Text("${slot.start} - ${slot.end}")).toList(),
-                      ],
+
+                  const SizedBox(height: 32),
+
+                  /// -------- CREATED CLINICS (SAME TAB) --------
+                  if (vm.createdClinics.isNotEmpty) ...[
+                    const Divider(),
+                    const Text(
+                      "Created Online Clinics",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    const SizedBox(height: 8),
+
+                    ...vm.createdClinics.map(
+                          (c) => Card(
+                        child: ListTile(
+                          title: Text(
+                            "${c['department']} (${c['startTime']} - ${c['endTime']})",
+                          ),
+                          subtitle: Text(
+                            "Days: ${(c['days'] as List).join(', ')} | Fees: PKR ${c['fees']}",
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

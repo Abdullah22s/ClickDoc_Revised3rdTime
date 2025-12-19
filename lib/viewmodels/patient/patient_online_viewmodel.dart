@@ -1,6 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../../models/patient/patient_online_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/doctor/doctor_online_clinic_model.dart';
 
 class PatientOnlineViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -28,8 +28,8 @@ class PatientOnlineViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Convert Firestore snapshot to PatientOnlineModel
-  Future<PatientOnlineModel> doctorFromSnapshot(QueryDocumentSnapshot doctorDoc) async {
+  /// Fetch online clinics for a doctor document
+  Future<DoctorOnlineClinicModel> doctorFromSnapshot(QueryDocumentSnapshot doctorDoc) async {
     final doctorId = doctorDoc.id;
     final doctorData = doctorDoc.data() as Map<String, dynamic>;
 
@@ -37,25 +37,46 @@ class PatientOnlineViewModel extends ChangeNotifier {
         .collection('doctors')
         .doc(doctorId)
         .collection('online_clinics')
+        .orderBy('createdAt', descending: true)
         .get();
 
-    final clinics = clinicSnapshot.docs
-        .map((c) => ClinicModel.fromMap(c.data() as Map<String, dynamic>))
-        .toList();
+    if (clinicSnapshot.docs.isEmpty) {
+      throw Exception("No clinics found for doctor $doctorId");
+    }
 
-    return PatientOnlineModel.fromMap(doctorId, doctorData, clinics);
+    final firstClinicData = clinicSnapshot.docs.first.data() as Map<String, dynamic>;
+
+    List<AppointmentSlot> slots = [];
+    if (firstClinicData['slots'] != null) {
+      slots = (firstClinicData['slots'] as List)
+          .map((s) => AppointmentSlot(start: s['start'], end: s['end']))
+          .toList();
+    }
+
+    return DoctorOnlineClinicModel(
+      id: clinicSnapshot.docs.first.id,
+      doctorId: doctorId,
+      doctorName: doctorData['name'] ?? 'Not specified',
+      doctorQualification: doctorData['qualification'] ?? '',
+      department: firstClinicData['department'] ?? 'Not specified',
+      startTime: firstClinicData['startTime'] ?? '',
+      endTime: firstClinicData['endTime'] ?? '',
+      fees: firstClinicData['fees'] ?? 0,
+      appointmentDuration: firstClinicData['appointmentDuration'] ?? 15,
+      bufferDuration: firstClinicData['bufferDuration'] ?? 0,
+      days: List<String>.from(firstClinicData['days'] ?? []),
+      slots: slots,
+    );
   }
 
-  /// Stream of doctors
+  /// Stream of all doctors
   Stream<QuerySnapshot> get doctorsStream => _firestore.collection('doctors').snapshots();
 
-  /// Filter logic
-  bool matchesSearch(PatientOnlineModel doctor) {
+  /// Search filter
+  bool matchesSearch(DoctorOnlineClinicModel doctor) {
     final query = searchQuery.toLowerCase();
-    if (doctor.name.toLowerCase().contains(query)) return true;
-    for (var clinic in doctor.clinics) {
-      if (clinic.department.toLowerCase().contains(query)) return true;
-    }
+    if (doctor.doctorName.toLowerCase().contains(query)) return true;
+    if (doctor.department.toLowerCase().contains(query)) return true;
     return false;
   }
 }
