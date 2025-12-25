@@ -24,8 +24,9 @@ class PatientProfileViewModel extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Error fetching patient info: $e");
+    } finally {
+      loading = false;
+      notifyListeners();
     }
-    loading = false;
-    notifyListeners();
   }
 }

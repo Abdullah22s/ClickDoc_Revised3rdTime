@@ -1,37 +1,33 @@
 class PatientProfileModel {
+  final String referenceNumber;
   final String email;
-  final int? age;
-  final double? weight;
-  final String? gender;
-  final String? medicalHistory;
+  final String age;
+  final String weight;
+  final String gender;
+  final String bloodGroup;
+  final List<String> medicalHistory;
 
   PatientProfileModel({
+    required this.referenceNumber,
     required this.email,
-    this.age,
-    this.weight,
-    this.gender,
-    this.medicalHistory,
+    required this.age,
+    required this.weight,
+    required this.gender,
+    required this.bloodGroup,
+    required this.medicalHistory,
   });
 
-  /// Create model from Firestore map
   factory PatientProfileModel.fromMap(Map<String, dynamic> map) {
     return PatientProfileModel(
+      referenceNumber: map['referenceNumber'] ?? '',
       email: map['email'] ?? '',
-      age: map['age'] != null ? (map['age'] as num).toInt() : null,
-      weight: map['weight'] != null ? (map['weight'] as num).toDouble() : null,
-      gender: map['gender'],
-      medicalHistory: map['medicalHistory'],
+      age: map['age']?.toString() ?? 'N/A',
+      weight: map['weight']?.toString() ?? 'N/A',
+      gender: map['gender'] ?? 'N/A',
+      bloodGroup: map['bloodGroup'] ?? 'N/A',
+      medicalHistory: map['medicalHistory'] != null
+          ? List<String>.from(map['medicalHistory'])
+          : [],
     );
-  }
-
-  /// Convert model back to map (useful for updates)
-  Map<String, dynamic> toMap() {
-    return {
-      'email': email,
-      'age': age,
-      'weight': weight,
-      'gender': gender,
-      'medicalHistory': medicalHistory,
-    };
   }
 }

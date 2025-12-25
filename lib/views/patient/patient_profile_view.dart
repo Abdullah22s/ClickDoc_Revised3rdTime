@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/patient/patient_profile_model.dart';
 import '../../viewmodels/patient/patient_profile_viewmodel.dart';
 
 class PatientProfileView extends StatelessWidget {
@@ -13,72 +14,83 @@ class PatientProfileView extends StatelessWidget {
       create: (_) => PatientProfileViewModel(userEmail: userEmail),
       child: Consumer<PatientProfileViewModel>(
         builder: (context, vm, _) {
-          return DefaultTabController(
-            length: 2,
-            child: Scaffold(
-              appBar: AppBar(
-                title: const Text("My Profile"),
-                backgroundColor: Colors.blueAccent,
-                bottom: const TabBar(
-                  labelColor: Colors.white,
-                  indicatorColor: Colors.white,
-                  tabs: [
-                    Tab(text: "My Info"),
-                    Tab(text: "My Reports"),
-                  ],
-                ),
-              ),
-              body: vm.loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
-                children: [
-                  _buildMyInfo(vm),
-                  _buildMyReports(vm),
-                ],
-              ),
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text("My Profile"),
             ),
+            body: vm.loading
+                ? const Center(child: CircularProgressIndicator())
+                : vm.patient == null
+                ? const Center(child: Text("No Profile Data Found"))
+                : _buildProfile(vm.patient!),
           );
         },
       ),
     );
   }
 
-  Widget _buildMyInfo(PatientProfileViewModel vm) {
-    if (vm.patient == null) {
-      return const Center(
-        child: Text("No Data Found", style: TextStyle(fontSize: 16)),
-      );
-    }
-
+  Widget _buildProfile(PatientProfileModel patient) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _infoTile("Email", vm.patient!.email),
-        _infoTile("Age", vm.patient!.age),
-        _infoTile("Weight", vm.patient!.weight),
-        _infoTile("Gender", vm.patient!.gender),
-        _infoTile("Medical History", vm.patient!.medicalHistory),
+
+        /// Reference Number
+        Card(
+          color: Colors.blue.shade50,
+          child: ListTile(
+            title: const Text("Reference Number"),
+            subtitle: Text(
+              patient.referenceNumber,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            leading: const Icon(Icons.confirmation_number),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        _infoCard("Email", patient.email),
+        _infoCard("Age", patient.age),
+        _infoCard("Weight (kg)", patient.weight),
+        _infoCard("Gender", patient.gender),
+        _infoCard("Blood Group", patient.bloodGroup),
+
+        const SizedBox(height: 16),
+
+        /// Medical History
+        const Text(
+          "Major Illnesses",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+
+        patient.medicalHistory.isEmpty
+            ? const Text("No major illness reported")
+            : Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: patient.medicalHistory.map((disease) {
+            return Chip(
+              label: Text(disease),
+              backgroundColor: Colors.red.shade50,
+            );
+          }).toList(),
+        ),
       ],
     );
   }
 
-  Widget _buildMyReports(PatientProfileViewModel vm) {
-    return const Center(
-      child: Text(
-        "Reports section coming soon...",
-        style: TextStyle(fontSize: 16, color: Colors.grey),
-      ),
-    );
-  }
-
-  Widget _infoTile(String label, dynamic value) {
+  Widget _infoCard(String label, String value) {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         title: Text(label),
-        subtitle: Text(value?.toString() ?? "N/A"),
-        leading: const Icon(Icons.arrow_right, color: Colors.blueAccent),
+        subtitle: Text(value),
+        leading: const Icon(Icons.arrow_right),
       ),
     );
   }
