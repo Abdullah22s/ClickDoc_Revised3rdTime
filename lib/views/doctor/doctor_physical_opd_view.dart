@@ -11,7 +11,13 @@ class DoctorPhysicalOpdScreen extends StatelessWidget {
       create: (_) => DoctorPhysicalOpdViewModel(),
       child: Consumer<DoctorPhysicalOpdViewModel>(
         builder: (context, vm, _) {
-          /// Widget to select time for each day
+
+          String doctorTitle() {
+            return vm.doctorQualification.isNotEmpty
+                ? "Dr. ${vm.doctorName} (${vm.doctorQualification})"
+                : "Dr. ${vm.doctorName}";
+          }
+
           Widget buildDayTimeSelector(String day) {
             return Row(
               children: [
@@ -19,7 +25,9 @@ class DoctorPhysicalOpdScreen extends StatelessWidget {
                   child: InkWell(
                     onTap: () async {
                       final picked = await showTimePicker(
-                          context: context, initialTime: TimeOfDay.now());
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
                       if (picked != null) vm.setFromTime(day, picked);
                     },
                     child: InputDecorator(
@@ -35,7 +43,9 @@ class DoctorPhysicalOpdScreen extends StatelessWidget {
                   child: InkWell(
                     onTap: () async {
                       final picked = await showTimePicker(
-                          context: context, initialTime: TimeOfDay.now());
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
                       if (picked != null) vm.setToTime(day, picked);
                     },
                     child: InputDecorator(
@@ -50,7 +60,6 @@ class DoctorPhysicalOpdScreen extends StatelessWidget {
             );
           }
 
-          /// Form to add a new OPD
           Widget buildAddOpdForm() {
             if (vm.loading) {
               return const Padding(
@@ -60,57 +69,92 @@ class DoctorPhysicalOpdScreen extends StatelessWidget {
             }
 
             return Card(
-              elevation: 3,
               margin: const EdgeInsets.all(12),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      "Dr. ${vm.doctorName} (${vm.doctorQualification})",
-                      style:
-                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
+                    Text(doctorTitle(),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
+
+                    /// Hospital
                     TextField(
                       controller: vm.hospitalController,
-                      decoration: const InputDecoration(labelText: "Hospital/Clinic"),
+                      decoration:
+                      const InputDecoration(labelText: "Hospital / Clinic"),
                     ),
+
                     const SizedBox(height: 12),
+
+                    /// City (First letter forced uppercase)
+                    TextField(
+                      controller: vm.cityController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: "City",
+                        hintText: "e.g. Lahore",
+                      ),
+                      onChanged: (value) {
+                        if (value.isNotEmpty) {
+                          final formatted =
+                              value[0].toUpperCase() + value.substring(1);
+                          if (formatted != value) {
+                            vm.cityController.value =
+                                vm.cityController.value.copyWith(
+                                  text: formatted,
+                                  selection: TextSelection.collapsed(
+                                      offset: formatted.length),
+                                );
+                          }
+                        }
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
                     DropdownButtonFormField<String>(
                       value: vm.selectedDepartment,
-                      decoration: const InputDecoration(
-                          labelText: "Department / Specialization"),
+                      decoration:
+                      const InputDecoration(labelText: "Department"),
                       items: vm.departments
-                          .map((dept) => DropdownMenuItem(value: dept, child: Text(dept)))
+                          .map((d) =>
+                          DropdownMenuItem(value: d, child: Text(d)))
                           .toList(),
-                      onChanged: (val) => vm.selectedDepartment = val,
+                      onChanged: (v) => vm.selectedDepartment = v,
                     ),
+
                     const SizedBox(height: 12),
-                    const Text("Select Days & Time",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+
                     Wrap(
                       spacing: 6,
                       children: vm.daysSelected.keys
                           .map((day) => FilterChip(
                         label: Text(day),
                         selected: vm.daysSelected[day]!,
-                        onSelected: (val) => vm.toggleDay(day, val),
+                        onSelected: (v) => vm.toggleDay(day, v),
                       ))
                           .toList(),
                     ),
+
                     const SizedBox(height: 12),
+
                     Column(
                       children: vm.daysSelected.entries
                           .where((e) => e.value)
                           .map((e) => buildDayTimeSelector(e.key))
                           .toList(),
                     ),
+
                     const SizedBox(height: 12),
+
                     Center(
                       child: ElevatedButton(
-                          onPressed: vm.addOpd, child: const Text("Add OPD")),
+                        onPressed: vm.addOpd,
+                        child: const Text("Add OPD"),
+                      ),
                     ),
                   ],
                 ),
@@ -118,48 +162,43 @@ class DoctorPhysicalOpdScreen extends StatelessWidget {
             );
           }
 
-          /// List of OPDs
           Widget buildOpdList() {
             return StreamBuilder(
               stream: vm.getOpdStream(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData ||
                     (snapshot.data as dynamic).docs.isEmpty) {
-                  return const Center(child: Text("No OPDs added yet."));
+                  return const Center(child: Text("No OPDs added yet"));
                 }
 
-                final opdDocs = (snapshot.data as dynamic).docs;
+                final docs = (snapshot.data as dynamic).docs;
 
                 return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: opdDocs.length,
-                  itemBuilder: (context, index) {
-                    final opd = opdDocs[index].data();
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) {
+                    final opd = docs[i].data();
                     return Card(
-                      margin:
-                      const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       child: ListTile(
                         leading: const Icon(Icons.local_hospital,
                             color: Colors.blueAccent),
-                        title: Column(
+                        title: Text(doctorTitle(),
+                            style:
+                            const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "Dr. ${vm.doctorName} (${vm.doctorQualification})",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                            const SizedBox(height: 2),
-                            Text("${opd['day']}: ${opd['hospitalName']}"),
+                            Text("${opd['day']} - ${opd['hospitalName']}"),
+                            Text("City: ${opd['city']}"),
+                            Text("${opd['fromTime']} - ${opd['toTime']}"),
                             if (opd['department'] != null)
-                              Text("Department: ${opd['department']}"),
+                              Text("Dept: ${opd['department']}"),
                           ],
                         ),
-                        subtitle: Text("${opd['fromTime']} - ${opd['toTime']}"),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => vm.deleteOpd(opdDocs[index].id),
+                          onPressed: () => vm.deleteOpd(docs[i].id),
                         ),
                       ),
                     );
@@ -177,8 +216,7 @@ class DoctorPhysicalOpdScreen extends StatelessWidget {
             body: Column(
               children: [
                 buildAddOpdForm(),
-                const SizedBox(height: 20),
-                Expanded(child: buildOpdList())
+                Expanded(child: buildOpdList()),
               ],
             ),
           );

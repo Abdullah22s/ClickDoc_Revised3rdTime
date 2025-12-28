@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../models/doctor/doctor_physical_opd_model.dart';
 
 class DoctorPhysicalOpdViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -11,6 +10,8 @@ class DoctorPhysicalOpdViewModel extends ChangeNotifier {
   String doctorQualification = '';
 
   final TextEditingController hospitalController = TextEditingController();
+  final TextEditingController cityController = TextEditingController();
+
   bool loading = false;
 
   final List<String> departments = [
@@ -71,7 +72,11 @@ class DoctorPhysicalOpdViewModel extends ChangeNotifier {
     if (doc.exists) {
       final data = doc.data()!;
       doctorName = data['name'] ?? 'Unknown';
-      doctorQualification = data['qualification'] ?? '';
+
+      final List qualifications = data['qualifications'] ?? [];
+      doctorQualification =
+      qualifications.isNotEmpty ? qualifications.join(', ') : '';
+
       notifyListeners();
     }
   }
@@ -91,14 +96,12 @@ class DoctorPhysicalOpdViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Convert TimeOfDay → "HH:mm"
   String formatTime(TimeOfDay time) {
     final h = time.hour.toString().padLeft(2, '0');
     final m = time.minute.toString().padLeft(2, '0');
     return "$h:$m";
   }
 
-  /// ✅ PUBLIC STREAM FOR VIEW (MVVM Correct)
   Stream<QuerySnapshot> getOpdStream() {
     return _firestore
         .collection('doctors')
@@ -109,30 +112,30 @@ class DoctorPhysicalOpdViewModel extends ChangeNotifier {
   }
 
   Future<void> addOpd() async {
-    final selectedDaysList =
+    final selectedDays =
     daysSelected.entries.where((e) => e.value).map((e) => e.key).toList();
 
     if (hospitalController.text.isEmpty ||
-        selectedDaysList.isEmpty ||
-        selectedDepartment == null) {
-      return;
-    }
+        cityController.text.isEmpty ||
+        selectedDays.isEmpty ||
+        selectedDepartment == null) return;
 
-    for (var day in selectedDaysList) {
+    for (var day in selectedDays) {
       if (fromTimes[day] == null || toTimes[day] == null) return;
     }
 
     loading = true;
     notifyListeners();
 
-    final opdCollection = _firestore
+    final opdRef = _firestore
         .collection('doctors')
         .doc(doctorUid)
         .collection('physical_opds');
 
-    for (var day in selectedDaysList) {
-      await opdCollection.add({
+    for (var day in selectedDays) {
+      await opdRef.add({
         'hospitalName': hospitalController.text,
+        'city': cityController.text,
         'day': day,
         'fromTime': formatTime(fromTimes[day]!),
         'toTime': formatTime(toTimes[day]!),
@@ -141,15 +144,15 @@ class DoctorPhysicalOpdViewModel extends ChangeNotifier {
       });
     }
 
-    /// Reset form
     hospitalController.clear();
-    for (var day in selectedDaysList) {
+    cityController.clear();
+    selectedDepartment = null;
+
+    for (var day in selectedDays) {
       daysSelected[day] = false;
       fromTimes[day] = null;
       toTimes[day] = null;
     }
-
-    selectedDepartment = null;
 
     loading = false;
     notifyListeners();
@@ -162,7 +165,12 @@ class DoctorPhysicalOpdViewModel extends ChangeNotifier {
         .collection('physical_opds')
         .doc(opdId)
         .delete();
+  }
 
-    notifyListeners();
+  @override
+  void dispose() {
+    hospitalController.dispose();
+    cityController.dispose();
+    super.dispose();
   }
 }

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ClinicModel {
   final String department;
   final String startTime;
@@ -5,6 +7,8 @@ class ClinicModel {
   final int fees;
   final List<String> days;
   final List<Map<String, String>> slots;
+  final DateTime startDateTime;
+  final DateTime endDateTime;
 
   ClinicModel({
     required this.department,
@@ -13,6 +17,8 @@ class ClinicModel {
     required this.fees,
     required this.days,
     required this.slots,
+    required this.startDateTime,
+    required this.endDateTime,
   });
 
   factory ClinicModel.fromMap(Map<String, dynamic> map) {
@@ -23,6 +29,12 @@ class ClinicModel {
       fees: map['fees'] ?? 0,
       days: List<String>.from(map['days'] ?? []),
       slots: List<Map<String, String>>.from(map['slots'] ?? []),
+      startDateTime: map['startDateTime'] is Timestamp
+          ? (map['startDateTime'] as Timestamp).toDate()
+          : DateTime.tryParse(map['startDateTime'] ?? '') ?? DateTime.now(),
+      endDateTime: map['endDateTime'] is Timestamp
+          ? (map['endDateTime'] as Timestamp).toDate()
+          : DateTime.tryParse(map['endDateTime'] ?? '') ?? DateTime.now(),
     );
   }
 

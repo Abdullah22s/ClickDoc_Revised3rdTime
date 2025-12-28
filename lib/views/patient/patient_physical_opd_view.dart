@@ -2,9 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:clickdoc1/viewmodels/patient/patient_physical_opd_viewmodel.dart';
 import 'package:clickdoc1/models/patient/patient_physical_opd_model.dart';
+import 'package:clickdoc1/services/doctor_search_service.dart';
 
-class PatientPhysicalOpdView extends StatelessWidget {
+class PatientPhysicalOpdView extends StatefulWidget {
   const PatientPhysicalOpdView({super.key});
+
+  @override
+  State<PatientPhysicalOpdView> createState() => _PatientPhysicalOpdViewState();
+}
+
+class _PatientPhysicalOpdViewState extends State<PatientPhysicalOpdView> {
+  final DoctorSearchService _searchService = DoctorSearchService();
+
+  String? _name;
+  String? _city;
+  String? _department;
+
+  bool _isSearching = false;
 
   @override
   Widget build(BuildContext context) {
@@ -16,178 +30,192 @@ class PatientPhysicalOpdView extends StatelessWidget {
             appBar: AppBar(
               title: const Text("Doctors & OPDs"),
               backgroundColor: Colors.blueAccent,
-            ),
-            body: Column(
-              children: [
-                // Search Bar
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: TextField(
-                    controller: vm.searchController,
-                    decoration: InputDecoration(
-                      hintText: "Search by doctor, department, or hospital",
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: vm.searchQuery.isNotEmpty
-                          ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: vm.clearSearch,
-                      )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onChanged: vm.updateSearch,
-                  ),
-                ),
-
-                // OPDs List
-                Expanded(
-                  child: StreamBuilder<List<DoctorPhysicalOpdModel>>(
-                    stream: vm.doctorOpdStream,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return const Center(child: Text("No OPDs available."));
-                      }
-
-                      final doctors =
-                      snapshot.data!.where(vm.matchesSearch).toList();
-
-                      if (doctors.isEmpty) {
-                        return const Center(child: Text("No matching results."));
-                      }
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: doctors.length,
-                        itemBuilder: (context, index) {
-                          final doctor = doctors[index];
-                          final isExpanded =
-                              vm.expandedDoctor[doctor.id] ?? false;
-
-                          return Card(
-                            elevation: 4,
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 60,
-                                        height: 60,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.blueAccent.shade100,
-                                        ),
-                                        child: const Icon(
-                                          Icons.medical_services,
-                                          color: Colors.white,
-                                          size: 32,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              "Dr. ${doctor.name}",
-                                              style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              "Department: ${doctor.opds.isNotEmpty ? doctor.opds.first.department : 'Unknown'}",
-                                              style:
-                                              const TextStyle(fontSize: 12),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(
-                                          isExpanded
-                                              ? Icons.expand_less
-                                              : Icons.expand_more,
-                                          color: Colors.blueAccent,
-                                        ),
-                                        onPressed: () =>
-                                            vm.toggleDoctorExpansion(doctor.id),
-                                      )
-                                    ],
-                                  ),
-                                ),
-                                if (isExpanded)
-                                  Column(
-                                    children: doctor.opds.map((opd) {
-                                      return Container(
-                                        margin: const EdgeInsets.symmetric(
-                                            vertical: 4, horizontal: 16),
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.shade50
-                                              .withOpacity(0.5),
-                                          borderRadius:
-                                          BorderRadius.circular(12),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    "${opd.day}: ${opd.hospitalName}",
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                        FontWeight.w600,
-                                                        fontSize: 14),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    "${opd.fromTime} - ${opd.toTime}",
-                                                    style: const TextStyle(
-                                                        fontSize: 12),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const Icon(Icons.local_hospital,
-                                                color: Colors.blueAccent),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () => _openFilterSheet(context),
                 ),
               ],
             ),
+            body: _isSearching
+                ? _buildSearchResult(vm)
+                : _buildStreamResult(vm),
           );
         },
       ),
+    );
+  }
+
+  /// 🔎 STREAM MODE
+  Widget _buildStreamResult(PatientPhysicalOpdViewModel vm) {
+    return StreamBuilder<List<DoctorPhysicalOpdModel>>(
+      stream: vm.doctorOpdStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text("No OPDs available."));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: snapshot.data!.length,
+          itemBuilder: (context, index) {
+            return _doctorCard(vm, snapshot.data![index]);
+          },
+        );
+      },
+    );
+  }
+
+  /// 🔍 SEARCH MODE
+  Widget _buildSearchResult(PatientPhysicalOpdViewModel vm) {
+    return FutureBuilder(
+      future: _searchService.searchDoctors(
+        name: _name,
+        city: _city,
+        department: _department,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text("No OPDs found."));
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(12),
+          children: snapshot.data!.map((doc) {
+            return FutureBuilder<DoctorPhysicalOpdModel?>(
+              future: vm.getDoctorInfo(doc.id),
+              builder: (context, snap) {
+                if (!snap.hasData) return const SizedBox();
+                return _doctorCard(vm, snap.data!);
+              },
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  /// 🧩 DOCTOR CARD (UNCHANGED)
+  Widget _doctorCard(
+      PatientPhysicalOpdViewModel vm, DoctorPhysicalOpdModel doctor) {
+    final isExpanded = vm.expandedDoctor[doctor.id] ?? false;
+    final firstOpd = doctor.opds.first;
+
+    final qualificationsText = doctor.qualifications.isNotEmpty
+        ? " (${doctor.qualifications.join(', ')})"
+        : "";
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.medical_services),
+            title: Text(
+              "Dr. ${doctor.name}$qualificationsText",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Department: ${firstOpd.department}"),
+                Text("City: ${firstOpd.city}"),
+              ],
+            ),
+            trailing: IconButton(
+              icon: Icon(
+                  isExpanded ? Icons.expand_less : Icons.expand_more),
+              onPressed: () =>
+                  vm.toggleDoctorExpansion(doctor.id),
+            ),
+          ),
+          if (isExpanded)
+            ...doctor.opds.map((opd) => ListTile(
+              title: Text("${opd.day}: ${opd.hospitalName}"),
+              subtitle:
+              Text("${opd.fromTime} - ${opd.toTime}"),
+            )),
+        ],
+      ),
+    );
+  }
+
+  /// 🎛 FILTER BOTTOM SHEET
+  void _openFilterSheet(BuildContext context) {
+    final nameCtrl = TextEditingController(text: _name);
+    final cityCtrl = TextEditingController(text: _city);
+    final deptCtrl = TextEditingController(text: _department);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration:
+                const InputDecoration(labelText: "Doctor Name"),
+              ),
+              TextField(
+                controller: cityCtrl,
+                decoration: const InputDecoration(labelText: "City"),
+              ),
+              TextField(
+                controller: deptCtrl,
+                decoration:
+                const InputDecoration(labelText: "Department"),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _name = nameCtrl.text;
+                    _city = cityCtrl.text;
+                    _department = deptCtrl.text;
+                    _isSearching = true;
+                  });
+                  Navigator.pop(context);
+                },
+                child: const Text("Apply Filters"),
+              ),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _name = null;
+                    _city = null;
+                    _department = null;
+                    _isSearching = false;
+                  });
+                  Navigator.pop(context);
+                },
+                child: const Text("Clear Filters"),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

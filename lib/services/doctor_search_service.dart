@@ -3,49 +3,75 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class DoctorSearchService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Search doctors by name or department/specialization
-  Future<List<QueryDocumentSnapshot>> searchDoctors(String query) async {
-    if (query.isEmpty) {
-      final snapshot = await _firestore.collection('doctors').get();
-      return snapshot.docs;
-    }
+  /// Case-insensitive search without changing Firestore structure
+  /// Supports:
+  /// - name
+  /// - city
+  /// - department
+  /// - any combination (1, 2, or 3 fields)
+  Future<List<QueryDocumentSnapshot>> searchDoctors({
+    String? name,
+    String? city,
+    String? department,
+  }) async {
+    final nameQuery = name?.trim().toLowerCase() ?? '';
+    final cityQuery = city?.trim().toLowerCase() ?? '';
+    final deptQuery = department?.trim().toLowerCase() ?? '';
 
-    // Case-insensitive search
-    final searchTerm = query.trim().toLowerCase();
+    /// 1️⃣ Fetch ALL doctors (no where clause → no limitation)
+    final doctorsSnapshot = await _firestore.collection('doctors').get();
 
-    // Search by doctor name first
-    final nameResults = await _firestore
-        .collection('doctors')
-        .where('name_lowercase', isGreaterThanOrEqualTo: searchTerm)
-        .where('name_lowercase', isLessThanOrEqualTo: '$searchTerm\uf8ff')
-        .get();
+    final List<QueryDocumentSnapshot> resultDoctors = [];
 
-    if (nameResults.docs.isNotEmpty) return nameResults.docs;
+    for (final doctorDoc in doctorsSnapshot.docs) {
+      final doctorData = doctorDoc.data() as Map<String, dynamic>;
 
-    // If no match by name, search by specialization or department
-    final allDoctors = await _firestore.collection('doctors').get();
-    final filtered = <QueryDocumentSnapshot>[];
+      final doctorName =
+      (doctorData['name'] ?? '').toString().toLowerCase();
 
-    for (var doc in allDoctors.docs) {
-      final onlineClinics = await _firestore
+      /// 🔹 NAME FILTER (local, case-insensitive)
+      if (nameQuery.isNotEmpty &&
+          !doctorName.contains(nameQuery)) {
+        continue;
+      }
+
+      /// 2️⃣ Fetch OPDs for this doctor
+      final opdSnapshot = await _firestore
           .collection('doctors')
-          .doc(doc.id)
-          .collection('online_clinics')
-          .get();
-      final physicalOpds = await _firestore
-          .collection('doctors')
-          .doc(doc.id)
+          .doc(doctorDoc.id)
           .collection('physical_opds')
           .get();
 
-      final matchOnline = onlineClinics.docs.any((c) =>
-          c.data().toString().toLowerCase().contains(searchTerm));
-      final matchPhysical = physicalOpds.docs.any((c) =>
-          c.data().toString().toLowerCase().contains(searchTerm));
+      if (opdSnapshot.docs.isEmpty) continue;
 
-      if (matchOnline || matchPhysical) filtered.add(doc);
+      /// 🔹 CITY + DEPARTMENT FILTER (local)
+      bool opdMatched = false;
+
+      for (final opd in opdSnapshot.docs) {
+        final opdData = opd.data() as Map<String, dynamic>;
+
+        final opdCity =
+        (opdData['city'] ?? '').toString().toLowerCase();
+        final opdDept =
+        (opdData['department'] ?? '').toString().toLowerCase();
+
+        final cityMatch =
+            cityQuery.isEmpty || opdCity.contains(cityQuery);
+
+        final deptMatch =
+            deptQuery.isEmpty || opdDept.contains(deptQuery);
+
+        if (cityMatch && deptMatch) {
+          opdMatched = true;
+          break;
+        }
+      }
+
+      if (opdMatched) {
+        resultDoctors.add(doctorDoc);
+      }
     }
 
-    return filtered;
+    return resultDoctors;
   }
 }

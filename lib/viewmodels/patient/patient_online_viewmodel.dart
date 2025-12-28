@@ -6,21 +6,8 @@ class PatientOnlineViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Map<String, bool> expandedDoctor = {};
-  String searchQuery = '';
-  TextEditingController searchController = TextEditingController();
-
-  /// Update search query
-  void updateSearch(String value) {
-    searchQuery = value.trim();
-    notifyListeners();
-  }
-
-  /// Clear search
-  void clearSearch() {
-    searchQuery = '';
-    searchController.clear();
-    notifyListeners();
-  }
+  String nameFilter = '';
+  String departmentFilter = '';
 
   /// Toggle doctor expansion
   void toggleDoctorExpansion(String doctorId) {
@@ -28,55 +15,79 @@ class PatientOnlineViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Fetch online clinics for a doctor document
-  Future<DoctorOnlineClinicModel> doctorFromSnapshot(QueryDocumentSnapshot doctorDoc) async {
-    final doctorId = doctorDoc.id;
-    final doctorData = doctorDoc.data() as Map<String, dynamic>;
+  /// Set filters from filter sheet
+  void setFilters({String? name, String? department}) {
+    nameFilter = name?.trim() ?? '';
+    departmentFilter = department?.trim() ?? '';
+    notifyListeners();
+  }
 
-    final clinicSnapshot = await _firestore
-        .collection('doctors')
-        .doc(doctorId)
-        .collection('online_clinics')
-        .orderBy('createdAt', descending: true)
-        .get();
-
-    if (clinicSnapshot.docs.isEmpty) {
-      throw Exception("No clinics found for doctor $doctorId");
-    }
-
-    final firstClinicData = clinicSnapshot.docs.first.data() as Map<String, dynamic>;
-
-    List<AppointmentSlot> slots = [];
-    if (firstClinicData['slots'] != null) {
-      slots = (firstClinicData['slots'] as List)
-          .map((s) => AppointmentSlot(start: s['start'], end: s['end']))
-          .toList();
-    }
-
-    return DoctorOnlineClinicModel(
-      id: clinicSnapshot.docs.first.id,
-      doctorId: doctorId,
-      doctorName: doctorData['name'] ?? 'Not specified',
-      doctorQualification: doctorData['qualification'] ?? '',
-      department: firstClinicData['department'] ?? 'Not specified',
-      startTime: firstClinicData['startTime'] ?? '',
-      endTime: firstClinicData['endTime'] ?? '',
-      fees: firstClinicData['fees'] ?? 0,
-      appointmentDuration: firstClinicData['appointmentDuration'] ?? 15,
-      bufferDuration: firstClinicData['bufferDuration'] ?? 0,
-      days: List<String>.from(firstClinicData['days'] ?? []),
-      slots: slots,
-    );
+  /// Clear filters
+  void clearFilters() {
+    nameFilter = '';
+    departmentFilter = '';
+    notifyListeners();
   }
 
   /// Stream of all doctors
-  Stream<QuerySnapshot> get doctorsStream => _firestore.collection('doctors').snapshots();
+  Stream<QuerySnapshot> get doctorsStream =>
+      _firestore.collection('doctors').snapshots();
 
-  /// Search filter
-  bool matchesSearch(DoctorOnlineClinicModel doctor) {
-    final query = searchQuery.toLowerCase();
-    if (doctor.doctorName.toLowerCase().contains(query)) return true;
-    if (doctor.department.toLowerCase().contains(query)) return true;
-    return false;
+  /// Fetch all online clinics for a doctor
+  Future<List<DoctorOnlineClinicModel>> getDoctorClinics(
+      QueryDocumentSnapshot doctorDoc) async {
+    final doctorId = doctorDoc.id;
+    final data = doctorDoc.data() as Map<String, dynamic>;
+
+    final clinicsSnap = await _firestore
+        .collection('doctors')
+        .doc(doctorId)
+        .collection('online_clinics')
+        .get();
+
+    if (clinicsSnap.docs.isEmpty) return [];
+
+    return clinicsSnap.docs.map((clinicDoc) {
+      final c = clinicDoc.data();
+
+      final slots = (c['slots'] as List? ?? []).map((s) {
+        // Use the model's AppointmentSlot
+        return AppointmentSlot(
+          start: s['start'],
+          end: s['end'],
+        );
+      }).toList();
+
+      return DoctorOnlineClinicModel(
+        id: clinicDoc.id,
+        doctorId: doctorId,
+        doctorName: data['name'] ?? 'Unknown',
+        doctorQualification: '', // Not used
+        department: c['department'] ?? '',
+        startTime: c['startTime'] ?? '',
+        endTime: c['endTime'] ?? '',
+        fees: c['fees'] ?? 0,
+        appointmentDuration: c['appointmentDuration'] ?? 15,
+        bufferDuration: c['bufferDuration'] ?? 0,
+        days: List<String>.from(c['days'] ?? []),
+        slots: slots,
+      );
+    }).toList();
+  }
+
+  /// Search filter (name + department)
+  bool matchesSearch(
+      String doctorName, List<DoctorOnlineClinicModel> clinics) {
+    final nameQuery = nameFilter.toLowerCase();
+    final deptQuery = departmentFilter.toLowerCase();
+
+    final nameMatch =
+    nameQuery.isEmpty ? true : doctorName.toLowerCase().contains(nameQuery);
+
+    final deptMatch = deptQuery.isEmpty
+        ? true
+        : clinics.any((c) => c.department.toLowerCase().contains(deptQuery));
+
+    return nameMatch && deptMatch;
   }
 }

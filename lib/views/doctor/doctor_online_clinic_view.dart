@@ -11,29 +11,32 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
       create: (_) => DoctorOnlineClinicViewModel(),
       child: Consumer<DoctorOnlineClinicViewModel>(
         builder: (context, vm, _) {
+          // Non-nullable reference
+          final viewModel = vm;
+
           return Scaffold(
             appBar: AppBar(
               title: const Text("Online Clinic Setup"),
               backgroundColor: Colors.blueAccent,
             ),
-            body: SingleChildScrollView(
+            body: viewModel.loading
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  /// -------- DOCTOR INFO --------
+                  // Doctor Info
                   Text(
-                    "Dr. ${vm.doctorName} (${vm.doctorQualification})",
+                    "Dr. ${viewModel.doctorName} ${viewModel.doctorQualification.isNotEmpty ? "(${viewModel.doctorQualification})" : ""}",
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 16),
 
-                  /// -------- DATE PICKER --------
+                  // Date Picker
                   ElevatedButton(
                     onPressed: () async {
                       final picked = await showDatePicker(
@@ -43,85 +46,47 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
                         lastDate: DateTime.now().add(const Duration(days: 180)),
                       );
                       if (picked != null) {
-                        vm.setSelectedDate(picked);
+                        viewModel.setSelectedDate(picked);
                       }
                     },
                     child: Text(
-                      vm.selectedDate == null
+                      viewModel.selectedDate == null
                           ? "Select Date"
-                          : "Date: ${vm.selectedDate!.toLocal().toString().split(' ')[0]}",
+                          : "Date: ${viewModel.selectedDate!.toLocal().toString().split(' ')[0]}",
                     ),
                   ),
 
-                  if (vm.selectedDays.isNotEmpty) ...[
+                  if (viewModel.selectedDays.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      "Selected Day: ${vm.selectedDays.first}",
+                      "Selected Day: ${viewModel.selectedDays.first}",
                       style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                   ],
 
-                  const SizedBox(height: 12),
-
-                  /// -------- REPEAT WEEKS --------
-                  DropdownButtonFormField<int>(
-                    value: vm.repeatWeeks,
-                    decoration: const InputDecoration(
-                      labelText: "Apply Schedule For",
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 1, child: Text("Only this date")),
-                      DropdownMenuItem(value: 2, child: Text("Next 2 weeks")),
-                      DropdownMenuItem(value: 4, child: Text("Next 4 weeks")),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) vm.setRepeatWeeks(val);
-                    },
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  /// -------- GENERATED DATES --------
-                  if (vm.getGeneratedDates().isNotEmpty) ...[
-                    const Text(
-                      "Applies On:",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    ...vm.getGeneratedDates().map(
-                          (d) => Text(
-                        "• ${d.toLocal().toString().split(' ')[0]}",
-                      ),
-                    ),
-                  ],
-
                   const SizedBox(height: 16),
 
-                  /// -------- DEPARTMENT --------
+                  // Department
                   DropdownButtonFormField<String>(
-                    value: vm.selectedDepartment.isEmpty
-                        ? null
-                        : vm.selectedDepartment,
+                    value: viewModel.selectedDepartment.isEmpty ? null : viewModel.selectedDepartment,
                     decoration: const InputDecoration(
                       labelText: "Department / Specialization",
                       border: OutlineInputBorder(),
                     ),
-                    items: vm.departments
-                        .map(
-                          (d) => DropdownMenuItem(
-                        value: d,
-                        child: Text(d),
-                      ),
-                    )
+                    items: viewModel.departments
+                        .map((d) => DropdownMenuItem(
+                      value: d,
+                      child: Text(d),
+                    ))
                         .toList(),
                     onChanged: (val) {
-                      if (val != null) vm.setDepartment(val);
+                      if (val != null) viewModel.setDepartment(val);
                     },
                   ),
 
                   const SizedBox(height: 16),
 
-                  /// -------- TIME PICKERS --------
+                  // Time Pickers
                   Row(
                     children: [
                       Expanded(
@@ -131,12 +96,12 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
                               context: context,
                               initialTime: TimeOfDay.now(),
                             );
-                            if (picked != null) vm.setStartTime(picked);
+                            if (picked != null) viewModel.setStartTime(picked);
                           },
                           child: Text(
-                            vm.startTime == null
+                            viewModel.startTime == null
                                 ? "Start Time"
-                                : "Start: ${vm.formatTime(vm.startTime!)}",
+                                : "Start: ${viewModel.formatTime(viewModel.startTime!)}",
                           ),
                         ),
                       ),
@@ -148,12 +113,12 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
                               context: context,
                               initialTime: TimeOfDay.now(),
                             );
-                            if (picked != null) vm.setEndTime(picked);
+                            if (picked != null) viewModel.setEndTime(picked);
                           },
                           child: Text(
-                            vm.endTime == null
+                            viewModel.endTime == null
                                 ? "End Time"
-                                : "End: ${vm.formatTime(vm.endTime!)}",
+                                : "End: ${viewModel.formatTime(viewModel.endTime!)}",
                           ),
                         ),
                       ),
@@ -162,9 +127,9 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  /// -------- FEES --------
+                  // Fees
                   TextField(
-                    controller: vm.feesController,
+                    controller: viewModel.feesController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       labelText: "Fees (PKR)",
@@ -174,47 +139,43 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  /// -------- DURATIONS --------
+                  // Appointment & Buffer Duration
                   Row(
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: vm.appointmentDuration,
+                          value: viewModel.appointmentDuration,
                           decoration: const InputDecoration(
-                            labelText: "Appointment Duration (min)",
+                            labelText: "Appointment Duration (minutes)",
                             border: OutlineInputBorder(),
                           ),
-                          items: vm.appointmentOptions
-                              .map(
-                                (v) => DropdownMenuItem(
-                              value: v,
-                              child: Text("$v min"),
-                            ),
-                          )
+                          items: viewModel.appointmentOptions
+                              .map((v) => DropdownMenuItem(
+                            value: v,
+                            child: Text("$v min"),
+                          ))
                               .toList(),
                           onChanged: (val) {
-                            if (val != null) vm.setAppointmentDuration(val);
+                            if (val != null) viewModel.setAppointmentDuration(val);
                           },
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: vm.bufferDuration,
+                          value: viewModel.bufferDuration,
                           decoration: const InputDecoration(
-                            labelText: "Buffer Duration (min)",
+                            labelText: "Buffer Duration (minutes)",
                             border: OutlineInputBorder(),
                           ),
-                          items: vm.bufferOptions
-                              .map(
-                                (v) => DropdownMenuItem(
-                              value: v,
-                              child: Text("$v min"),
-                            ),
-                          )
+                          items: viewModel.bufferOptions
+                              .map((v) => DropdownMenuItem(
+                            value: v,
+                            child: Text("$v min"),
+                          ))
                               .toList(),
                           onChanged: (val) {
-                            if (val != null) vm.setBufferDuration(val);
+                            if (val != null) viewModel.setBufferDuration(val);
                           },
                         ),
                       ),
@@ -223,34 +184,30 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  /// -------- SLOT PREVIEW --------
-                  if (vm.previewSlots.isNotEmpty) ...[
+                  // Preview Slots
+                  if (viewModel.previewSlots.isNotEmpty) ...[
                     const Text(
                       "Preview Slots",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    ...vm.previewSlots.map(
-                          (s) => Text("${s.start} - ${s.end}"),
-                    ),
+                    ...viewModel.previewSlots.map((s) => Text("${s['start']} - ${s['end']}")),
                   ],
 
                   const SizedBox(height: 24),
 
-                  /// -------- SAVE BUTTON --------
+                  // Save Button
                   Center(
                     child: ElevatedButton(
-                      onPressed: vm.isSaving ? null : vm.saveClinic,
-                      child: Text(
-                        vm.isSaving ? "Saving..." : "Save Online Clinic",
-                      ),
+                      onPressed: viewModel.isSaving ? null : viewModel.saveClinic,
+                      child: Text(viewModel.isSaving ? "Saving..." : "Save Online Clinic"),
                     ),
                   ),
 
                   const SizedBox(height: 32),
 
-                  /// -------- CREATED CLINICS (SAME TAB) --------
-                  if (vm.createdClinics.isNotEmpty) ...[
+                  // Created Clinics Dropdown
+                  if (viewModel.createdClinics.isNotEmpty) ...[
                     const Divider(),
                     const Text(
                       "Created Online Clinics",
@@ -260,19 +217,7 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    ...vm.createdClinics.map(
-                          (c) => Card(
-                        child: ListTile(
-                          title: Text(
-                            "${c['department']} (${c['startTime']} - ${c['endTime']})",
-                          ),
-                          subtitle: Text(
-                            "Days: ${(c['days'] as List).join(', ')} | Fees: PKR ${c['fees']}",
-                          ),
-                        ),
-                      ),
-                    ),
+                    ClinicSlotsDropdown(vm: viewModel),
                   ],
                 ],
               ),
@@ -280,6 +225,59 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class ClinicSlotsDropdown extends StatefulWidget {
+  final DoctorOnlineClinicViewModel vm;
+  const ClinicSlotsDropdown({required this.vm, super.key});
+
+  @override
+  State<ClinicSlotsDropdown> createState() => _ClinicSlotsDropdownState();
+}
+
+class _ClinicSlotsDropdownState extends State<ClinicSlotsDropdown> {
+  Map<String, dynamic>? selectedClinic;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButton<Map<String, dynamic>>(
+          hint: const Text("Select Clinic to view slots"),
+          value: selectedClinic,
+          isExpanded: true,
+          items: widget.vm.createdClinics.map((clinic) {
+            final title = "${clinic['department']} (${clinic['startTime']} - ${clinic['endTime']})";
+            return DropdownMenuItem<Map<String, dynamic>>(
+              value: clinic,
+              child: Text(title),
+            );
+          }).toList(),
+          onChanged: (val) {
+            setState(() {
+              selectedClinic = val;
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        if (selectedClinic != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Slots for selected clinic:",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              ...widget.vm.getClinicSlots(selectedClinic!).map(
+                    (slot) => Text("${slot['start']} - ${slot['end']}"),
+              ),
+            ],
+          ),
+      ],
     );
   }
 }

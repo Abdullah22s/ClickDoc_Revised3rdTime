@@ -10,6 +10,9 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
   List<DoctorAppointment> appointments = [];
   bool isLoading = true;
 
+  // Map to cache patient reference numbers
+  final Map<String, String> patientRefs = {};
+
   DoctorAppointmentsViewModel() {
     fetchAppointments();
   }
@@ -23,10 +26,50 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
         .snapshots()
         .listen((snapshot) {
       appointments = snapshot.docs
-          .map((doc) => DoctorAppointment.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+          .map((doc) => DoctorAppointment.fromMap(
+          doc.id, doc.data() as Map<String, dynamic>))
           .toList();
       isLoading = false;
       notifyListeners();
     });
+  }
+
+  /// Handle Accept/Reject
+  Future<void> handleAppointment({
+    required String clinicId,
+    required String appointmentId,
+    required String action, // 'accept' or 'reject'
+  }) async {
+    final docRef = _firestore
+        .collection('doctors')
+        .doc(doctorId)
+        .collection('online_clinics')
+        .doc(clinicId)
+        .collection('appointments')
+        .doc(appointmentId);
+
+    if (action == 'accept') {
+      await docRef.update({'status': 'accepted'});
+    } else if (action == 'reject') {
+      await docRef.delete(); // delete rejected requests
+    }
+
+    notifyListeners();
+  }
+
+  /// Get patient reference number from patients collection
+  Future<String> getPatientReference(String patientId) async {
+    if (patientRefs.containsKey(patientId)) {
+      return patientRefs[patientId]!;
+    }
+
+    final doc = await _firestore.collection('patients').doc(patientId).get();
+    if (doc.exists) {
+      final ref = doc.data()?['referenceNumber'] ?? 'N/A';
+      patientRefs[patientId] = ref;
+      return ref;
+    }
+
+    return 'N/A';
   }
 }
