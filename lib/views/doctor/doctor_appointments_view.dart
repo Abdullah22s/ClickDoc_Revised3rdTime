@@ -32,6 +32,20 @@ class DoctorAppointmentsScreen extends StatelessWidget {
             itemCount: viewModel.appointments.length,
             itemBuilder: (context, index) {
               final clinic = viewModel.appointments[index];
+
+              // 🔹 Delete past clinics automatically
+              final now = DateTime.now();
+              if (clinic.endDateTime.isBefore(now)) {
+                FirebaseFirestore.instance
+                    .collection('doctors')
+                    .doc(FirebaseAuth.instance.currentUser!.uid)
+                    .collection('online_clinics')
+                    .doc(clinic.id)
+                    .delete();
+                // Skip rendering this clinic
+                return const SizedBox.shrink();
+              }
+
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 shape: RoundedRectangleBorder(

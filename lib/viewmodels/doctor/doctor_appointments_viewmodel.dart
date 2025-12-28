@@ -24,11 +24,27 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
         .collection('online_clinics')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .listen((snapshot) {
+        .listen((snapshot) async {
+      final now = DateTime.now();
+
+      // Automatically delete expired clinics
+      for (var doc in snapshot.docs) {
+        final endDateTime = doc['endDateTime'] as Timestamp?;
+        if (endDateTime != null && endDateTime.toDate().isBefore(now)) {
+          await doc.reference.delete();
+        }
+      }
+
+      // Only keep upcoming clinics in the list
       appointments = snapshot.docs
+          .where((doc) {
+        final endDateTime = doc['endDateTime'] as Timestamp?;
+        return endDateTime != null && endDateTime.toDate().isAfter(now);
+      })
           .map((doc) => DoctorAppointment.fromMap(
           doc.id, doc.data() as Map<String, dynamic>))
           .toList();
+
       isLoading = false;
       notifyListeners();
     });

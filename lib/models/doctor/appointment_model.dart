@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 class AppointmentSlot {
   final String start;
   final String end;
@@ -22,6 +23,10 @@ class DoctorAppointment {
   final int bufferDuration;
   final List<AppointmentSlot> slots;
 
+  // 🔹 New fields for automatic deletion
+  final DateTime startDateTime;
+  final DateTime endDateTime;
+
   DoctorAppointment({
     required this.id,
     required this.days,
@@ -31,6 +36,8 @@ class DoctorAppointment {
     required this.appointmentDuration,
     required this.bufferDuration,
     required this.slots,
+    required this.startDateTime,
+    required this.endDateTime,
   });
 
   factory DoctorAppointment.fromMap(String id, Map<String, dynamic> map) {
@@ -50,6 +57,13 @@ class DoctorAppointment {
       appointmentDuration: map['appointmentDuration'] ?? 0,
       bufferDuration: map['bufferDuration'] ?? 0,
       slots: slotList,
+      // 🔹 Parse startDateTime and endDateTime from Firestore Timestamp
+      startDateTime: map['startDateTime'] != null
+          ? (map['startDateTime'] as Timestamp).toDate()
+          : DateTime.now(),
+      endDateTime: map['endDateTime'] != null
+          ? (map['endDateTime'] as Timestamp).toDate()
+          : DateTime.now(),
     );
   }
 }

@@ -24,38 +24,29 @@ class SearchDoctorBySymptomView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  /// 🔹 Symptom Text Fields
                   ...List.generate(
-                    vm.selectedSymptoms.length,
+                    vm.symptomControllers.length,
                         (index) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Row(
                         children: [
                           Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: vm.selectedSymptoms[index],
-                              items: vm.symptoms
-                                  .map((s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(s),
-                              ))
-                                  .toList(),
-                              onChanged: (val) =>
-                                  vm.updateSelectedSymptom(index, val),
+                            child: TextFormField(
+                              controller: vm.symptomControllers[index],
                               decoration: InputDecoration(
                                 labelText: index == 0
-                                    ? "What are you feeling?"
-                                    : "Are you also feeling any of these?",
+                                    ? "Enter your main symptom"
+                                    : "Enter another symptom",
+                                hintText: "e.g. fever, cough, headache",
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                contentPadding:
-                                const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          if (vm.selectedSymptoms.length > 1)
+                          if (vm.symptomControllers.length > 1)
                             IconButton(
                               icon: const Icon(
                                 Icons.remove_circle,
@@ -69,8 +60,7 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 10),
-
+                  /// ➕ Add Symptom
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
@@ -80,8 +70,9 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
+                  /// 🔍 Search Button
                   ElevatedButton.icon(
                     onPressed: vm.searchDoctors,
                     icon: const Icon(Icons.search),
@@ -94,63 +85,71 @@ class SearchDoctorBySymptomView extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
+                  /// ⏳ Loader
                   if (vm.isLoading)
-                    const Center(child: CircularProgressIndicator())
-                  else if (vm.matchedDoctors.isEmpty)
+                    const Center(child: CircularProgressIndicator()),
+
+                  /// 🧠 Predicted Department Messages
+                  if (!vm.isLoading &&
+                      vm.predictedDepartmentMessages.isNotEmpty)
+                    Column(
+                      children: vm.predictedDepartmentMessages.map((msg) {
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blueAccent),
+                          ),
+                          child: Text(
+                            msg,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                  /// ❌ No Doctors Found
+                  if (!vm.isLoading &&
+                      vm.matchedDoctors.isEmpty &&
+                      vm.predictedDepartmentMessages.isEmpty)
                     const Text(
-                      "No doctors found",
+                      "No doctors available for the entered symptoms.",
                       style: TextStyle(color: Colors.grey),
-                    )
-                  else
+                    ),
+
+                  /// ✅ Doctor Results
+                  if (!vm.isLoading && vm.matchedDoctors.isNotEmpty)
                     Expanded(
                       child: ListView.builder(
                         itemCount: vm.matchedDoctors.length,
                         itemBuilder: (context, index) {
                           final doctor = vm.matchedDoctors[index];
-                          final name = doctor['doctorName'] ?? 'Unknown';
-                          final mainDep =
-                              doctor['mainDepartment'] ?? 'Unknown Department';
-
-                          final clinics = [
-                            ...doctor['opds'] as List,
-                            ...doctor['onlineClinics'] as List
-                          ];
+                          final name =
+                              doctor['doctorName'] ?? 'Unknown Doctor';
+                          final departments =
+                          (doctor['departments'] as Set).join(', ');
 
                           return Card(
+                            elevation: 3,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            elevation: 3,
                             margin:
                             const EdgeInsets.symmetric(vertical: 6),
-                            child: ExpansionTile(
+                            child: ListTile(
                               leading: const Icon(
                                 Icons.person,
                                 color: Colors.blueAccent,
                               ),
                               title: Text(name),
-                              subtitle: Text(mainDep),
-                              children: clinics.map<Widget>((c) {
-                                final days =
-                                    (c['days'] as List?)?.join(', ') ?? '';
-                                final timing =
-                                    '${c['startTime'] ?? ''} - ${c['endTime'] ?? ''}';
-                                final type = c['type'] ?? '';
-
-                                return ListTile(
-                                  title: Text(c['department'] ?? ''),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Type: $type'),
-                                      if (days.isNotEmpty) Text('Days: $days'),
-                                      if (timing.trim().isNotEmpty)
-                                        Text('Time: $timing'),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
+                              subtitle:
+                              Text("Department: $departments"),
                             ),
                           );
                         },

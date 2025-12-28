@@ -1,131 +1,107 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SearchDoctorBySymptomViewModel extends ChangeNotifier {
-  Map<String, dynamic> symptomMap = {};
+  Map<String, List<String>> symptomMap = {};
 
-  List<String> allSymptoms = [];
-  List<String> symptoms = [];
-  List<String?> selectedSymptoms = [null];
+  /// Controllers for text fields
+  List<TextEditingController> symptomControllers = [TextEditingController()];
+
+  static const int maxSymptoms = 3;
 
   bool isLoading = false;
   List<Map<String, dynamic>> matchedDoctors = [];
 
-  static const int maxSteps = 3;
+  /// Messages for departments with no available doctor
+  List<String> predictedDepartmentMessages = [];
 
   /// Load JSON
   Future<void> loadSymptomData() async {
     final jsonString =
     await rootBundle.loadString('assets/symptom_department_map.json');
 
-    symptomMap = json.decode(jsonString);
-    allSymptoms = symptomMap.keys.toList();
+    final Map<String, dynamic> raw = json.decode(jsonString);
 
-    symptoms = List.from(allSymptoms);
-    selectedSymptoms = [null];
+    symptomMap = raw.map(
+          (key, value) => MapEntry(key.toLowerCase(), List<String>.from(value)),
+    );
 
     notifyListeners();
   }
 
+  /// Add symptom input
   void addSymptomField() {
-    if (selectedSymptoms.length < maxSteps) {
-      selectedSymptoms.add(null);
+    if (symptomControllers.length < maxSymptoms) {
+      symptomControllers.add(TextEditingController());
       notifyListeners();
     }
   }
 
+  /// Remove symptom input
   void removeSymptomField(int index) {
-    if (selectedSymptoms.length > 1) {
-      selectedSymptoms.removeAt(index);
-      symptoms = List.from(allSymptoms);
+    if (symptomControllers.length > 1) {
+      symptomControllers.removeAt(index);
       notifyListeners();
     }
   }
 
-  void updateSelectedSymptom(int index, String? value) {
-    if (value == null) return;
-
-    selectedSymptoms[index] = value;
-
-    final selected = selectedSymptoms
-        .where((s) => s != null)
-        .cast<String>()
-        .toList();
-
-    final Set<String> relatedDepartments = {};
-    for (var s in selected) {
-      relatedDepartments.addAll(List<String>.from(symptomMap[s]));
-    }
-
-    final narrowed = symptomMap.entries
-        .where((entry) {
-      final deps = List<String>.from(entry.value);
-      return deps.any((d) => relatedDepartments.contains(d));
-    })
-        .map((e) => e.key)
-        .toSet()
-        .toList();
-
-    symptoms = {
-      ...narrowed,
-      ...selected,
-    }.toList();
-
-    if (index == selectedSymptoms.length - 1 &&
-        selectedSymptoms.length < maxSteps) {
-      selectedSymptoms.add(null);
-    }
-
-    notifyListeners();
-  }
-
-  /// Search doctors
+  /// MAIN SEARCH (Random Forest–style voting with multiple departments)
   Future<void> searchDoctors() async {
-    final selected = selectedSymptoms
-        .where((s) => s != null && s!.isNotEmpty)
-        .cast<String>()
+    final symptoms = symptomControllers
+        .map((c) => c.text.toLowerCase().trim())
+        .where((s) => s.isNotEmpty)
         .toList();
 
-    if (selected.isEmpty) return;
+    if (symptoms.isEmpty) return;
 
     isLoading = true;
     matchedDoctors = [];
+    predictedDepartmentMessages = [];
     notifyListeners();
 
-    final Set<String> predictedDepartments = {};
-    for (var s in selected) {
-      predictedDepartments.addAll(List<String>.from(symptomMap[s]));
+    /// 1️⃣ Department voting
+    final Map<String, int> departmentVotes = {};
+    for (final symptom in symptoms) {
+      if (symptomMap.containsKey(symptom)) {
+        for (final dept in symptomMap[symptom]!) {
+          departmentVotes[dept] = (departmentVotes[dept] ?? 0) + 1;
+        }
+      }
     }
 
+    if (departmentVotes.isEmpty) {
+      isLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    /// 2️⃣ Departments with at least 2 votes
+    final suggestedDepartments = departmentVotes.entries
+        .where((e) => e.value >= 2)
+        .map((e) => e.key)
+        .toList();
+
+    /// 3️⃣ If none reach 2 votes, pick the top one
+    final departmentsToShow =
+    suggestedDepartments.isNotEmpty ? suggestedDepartments : [departmentVotes.entries.first.key];
+
+    /// 4️⃣ Fetch doctors matching suggested departments
     final doctorsSnapshot =
     await FirebaseFirestore.instance.collection('doctors').get();
-
-    List<Map<String, dynamic>> allDoctors = [];
 
     for (var doc in doctorsSnapshot.docs) {
       final doctorId = doc.id;
       final doctorData = doc.data();
 
-      final doctorName =
-          doctorData['doctorName'] ?? doctorData['name'] ?? 'Unknown Doctor';
-
-      // Pick a primary department for card display
-      String mainDepartment = doctorData['department'] ??
-          (predictedDepartments.isNotEmpty
-              ? predictedDepartments.first
-              : 'Unknown Department');
-
       final doctorEntry = {
         'doctorId': doctorId,
-        'doctorName': doctorName,
-        'mainDepartment': mainDepartment,
-        'opds': <Map<String, dynamic>>[],
-        'onlineClinics': <Map<String, dynamic>>[],
+        'doctorName': doctorData['name'] ?? 'Unknown Doctor',
+        'departments': <String>{},
       };
 
-      // Physical OPDs
+      /// Physical OPDs
       final physicalOpds = await FirebaseFirestore.instance
           .collection('doctors')
           .doc(doctorId)
@@ -133,17 +109,12 @@ class SearchDoctorBySymptomViewModel extends ChangeNotifier {
           .get();
 
       for (var opd in physicalOpds.docs) {
-        final data = opd.data();
-        if (predictedDepartments
-            .contains(data['department'] ?? doctorData['department'])) {
-          doctorEntry['opds'].add({
-            ...data,
-            'type': 'Physical OPD',
-          });
+        if (departmentsToShow.contains(opd['department'])) {
+          doctorEntry['departments'].add(opd['department']);
         }
       }
 
-      // Online Clinics
+      /// Online Clinics
       final onlineClinics = await FirebaseFirestore.instance
           .collection('doctors')
           .doc(doctorId)
@@ -151,23 +122,23 @@ class SearchDoctorBySymptomViewModel extends ChangeNotifier {
           .get();
 
       for (var clinic in onlineClinics.docs) {
-        final data = clinic.data();
-        if (predictedDepartments
-            .contains(data['department'] ?? doctorData['department'])) {
-          doctorEntry['onlineClinics'].add({
-            ...data,
-            'type': 'Online Clinic',
-          });
+        if (departmentsToShow.contains(clinic['department'])) {
+          doctorEntry['departments'].add(clinic['department']);
         }
       }
 
-      if ((doctorEntry['opds'] as List).isNotEmpty ||
-          (doctorEntry['onlineClinics'] as List).isNotEmpty) {
-        allDoctors.add(doctorEntry);
+      if ((doctorEntry['departments'] as Set).isNotEmpty) {
+        matchedDoctors.add(doctorEntry);
       }
     }
 
-    matchedDoctors = allDoctors;
+    /// 5️⃣ Generate messages only for departments with NO available doctor
+    predictedDepartmentMessages = departmentsToShow.map((dept) {
+      final doctorExists = matchedDoctors.any(
+              (d) => (d['departments'] as Set).contains(dept));
+      return doctorExists ? null : "You may consult $dept.";
+    }).whereType<String>().toList(); // remove nulls
+
     isLoading = false;
     notifyListeners();
   }
