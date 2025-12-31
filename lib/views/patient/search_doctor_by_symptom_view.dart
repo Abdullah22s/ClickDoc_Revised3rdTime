@@ -8,11 +8,7 @@ class SearchDoctorBySymptomView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) {
-        final vm = SearchDoctorBySymptomViewModel();
-        vm.loadSymptomData();
-        return vm;
-      },
+      create: (_) => SearchDoctorBySymptomViewModel(),
       child: Consumer<SearchDoctorBySymptomViewModel>(
         builder: (context, vm, _) {
           return Scaffold(
@@ -24,57 +20,35 @@ class SearchDoctorBySymptomView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  /// 🔹 Symptom Text Fields
-                  ...List.generate(
-                    vm.symptomControllers.length,
-                        (index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: vm.symptomControllers[index],
-                              decoration: InputDecoration(
-                                labelText: index == 0
-                                    ? "Enter your main symptom"
-                                    : "Enter another symptom",
-                                hintText: "e.g. fever, cough, headache",
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (vm.symptomControllers.length > 1)
-                            IconButton(
-                              icon: const Icon(
-                                Icons.remove_circle,
-                                color: Colors.redAccent,
-                              ),
-                              onPressed: () =>
-                                  vm.removeSymptomField(index),
-                            ),
-                        ],
+                  /// 🔹 Ask user what they are feeling
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "What are you feeling?",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
 
-                  /// ➕ Add Symptom
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: vm.addSymptomField,
-                      icon: const Icon(Icons.add, color: Colors.blueAccent),
-                      label: const Text("Add Symptom"),
+                  /// 🔹 Text input for user symptoms
+                  TextFormField(
+                    controller: vm.messageController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: "Describe your symptoms...",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
-
                   const SizedBox(height: 12),
 
                   /// 🔍 Search Button
                   ElevatedButton.icon(
-                    onPressed: vm.searchDoctors,
+                    onPressed: vm.predictAndFetchDoctors,
                     icon: const Icon(Icons.search),
                     label: const Text("Find Doctors"),
                     style: ElevatedButton.styleFrom(
@@ -82,16 +56,34 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                       backgroundColor: Colors.blueAccent,
                     ),
                   ),
-
                   const SizedBox(height: 20),
 
                   /// ⏳ Loader
                   if (vm.isLoading)
                     const Center(child: CircularProgressIndicator()),
 
-                  /// 🧠 Predicted Department Messages
-                  if (!vm.isLoading &&
-                      vm.predictedDepartmentMessages.isNotEmpty)
+                  /// 🧠 Predicted Department
+                  if (!vm.isLoading && vm.predictedSpecialty != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blueAccent),
+                      ),
+                      child: Text(
+                        "Predicted Department: ${vm.predictedSpecialty}",
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+
+                  /// 📝 Department messages if no doctors available
+                  if (!vm.isLoading && vm.predictedDepartmentMessages.isNotEmpty)
                     Column(
                       children: vm.predictedDepartmentMessages.map((msg) {
                         return Container(
@@ -99,9 +91,9 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                           padding: const EdgeInsets.all(12),
                           margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
+                            color: Colors.orange.shade50,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blueAccent),
+                            border: Border.all(color: Colors.orange),
                           ),
                           child: Text(
                             msg,
@@ -114,16 +106,17 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                       }).toList(),
                     ),
 
-                  /// ❌ No Doctors Found
+                  /// ❌ No doctors found
                   if (!vm.isLoading &&
                       vm.matchedDoctors.isEmpty &&
-                      vm.predictedDepartmentMessages.isEmpty)
+                      vm.predictedDepartmentMessages.isEmpty &&
+                      vm.predictedSpecialty != null)
                     const Text(
-                      "No doctors available for the entered symptoms.",
+                      "No doctors available for this department.",
                       style: TextStyle(color: Colors.grey),
                     ),
 
-                  /// ✅ Doctor Results
+                  /// ✅ Doctor results
                   if (!vm.isLoading && vm.matchedDoctors.isNotEmpty)
                     Expanded(
                       child: ListView.builder(
@@ -140,16 +133,14 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            margin:
-                            const EdgeInsets.symmetric(vertical: 6),
+                            margin: const EdgeInsets.symmetric(vertical: 6),
                             child: ListTile(
                               leading: const Icon(
                                 Icons.person,
                                 color: Colors.blueAccent,
                               ),
                               title: Text(name),
-                              subtitle:
-                              Text("Department: $departments"),
+                              subtitle: Text("Department: $departments"),
                             ),
                           );
                         },

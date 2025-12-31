@@ -25,6 +25,17 @@ class PatientFormScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
+                  /// Phone Number (NEW)
+                  TextFormField(
+                    controller: vm.phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: "Phone Number",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   /// Age
                   TextFormField(
                     controller: vm.ageController,

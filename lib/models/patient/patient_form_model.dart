@@ -2,6 +2,7 @@ class PatientFormModel {
   final String referenceNumber;
   final String name;
   final String email;
+  final String phoneNumber; // NEW
   final String age;
   final String weight;
   final String gender;
@@ -12,6 +13,7 @@ class PatientFormModel {
     required this.referenceNumber,
     required this.name,
     required this.email,
+    required this.phoneNumber, // NEW
     required this.age,
     required this.weight,
     required this.gender,
@@ -24,6 +26,7 @@ class PatientFormModel {
       'referenceNumber': referenceNumber,
       'name': name,
       'email': email,
+      'phoneNumber': phoneNumber, // NEW
       'age': age,
       'weight': weight,
       'gender': gender,

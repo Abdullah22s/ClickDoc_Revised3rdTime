@@ -8,6 +8,7 @@ class PatientFormViewModel extends ChangeNotifier {
   /// Controllers
   TextEditingController ageController = TextEditingController();
   TextEditingController weightController = TextEditingController();
+  TextEditingController phoneController = TextEditingController(); // NEW
 
   String? selectedGender;
   String? selectedBloodGroup;
@@ -89,6 +90,7 @@ class PatientFormViewModel extends ChangeNotifier {
         referenceNumber: generateReferenceNumber(),
         name: userName,
         email: user.email ?? "",
+        phoneNumber: phoneController.text.trim(), // NEW
         age: ageController.text.trim(),
         weight: weightController.text.trim(),
         gender: selectedGender ?? "",

@@ -42,7 +42,6 @@ class DoctorAppointmentsScreen extends StatelessWidget {
                     .collection('online_clinics')
                     .doc(clinic.id)
                     .delete();
-                // Skip rendering this clinic
                 return const SizedBox.shrink();
               }
 
@@ -67,7 +66,8 @@ class DoctorAppointmentsScreen extends StatelessWidget {
                       Text("Time: ${clinic.startTime} - ${clinic.endTime}"),
                       Text("Fees: Rs ${clinic.fees}"),
                       const SizedBox(height: 10),
-                      const Text("Slots:", style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text("Slots:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
 
                       ...clinic.slots.map((slot) {
@@ -88,56 +88,61 @@ class DoctorAppointmentsScreen extends StatelessWidget {
                                   data['end'] == slot.end;
                             }).toList();
 
-                            const double slotCardHeight = 70;
-
                             return Card(
                               color: Colors.grey[50],
-                              margin: const EdgeInsets.symmetric(vertical: 6),
+                              margin:
+                              const EdgeInsets.symmetric(vertical: 6),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8)),
                               child: SizedBox(
-                                height: slotCardHeight,
+                                height: 70,
                                 child: Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           "${slot.start} - ${slot.end}",
                                           style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14),
+                                              fontWeight: FontWeight.bold),
                                         ),
                                       ),
 
-                                      if (requests.isEmpty)
-                                        Text(
-                                          "Available for booking",
-                                          style: TextStyle(color: Colors.green[700]),
-                                        ),
-
                                       ...requests.map((requestDoc) {
-                                        final data =
-                                        requestDoc.data() as Map<String, dynamic>;
-                                        final status = data['status'] ?? 'pending';
-                                        final patientId = data['patientId'] ?? '';
+                                        final data = requestDoc.data()
+                                        as Map<String, dynamic>;
+                                        final status =
+                                            data['status'] ?? 'pending';
+                                        final patientId =
+                                            data['patientId'] ?? '';
 
                                         return Row(
                                           children: [
                                             Visibility(
                                               visible: status == 'pending',
-                                              maintainSize: true,
-                                              maintainAnimation: true,
-                                              maintainState: true,
                                               child: ElevatedButton(
                                                 style: ElevatedButton.styleFrom(
-                                                    backgroundColor: Colors.green),
-                                                onPressed: () {
-                                                  viewModel.handleAppointment(
+                                                    backgroundColor:
+                                                    Colors.green),
+                                                onPressed: () async {
+                                                  final smsSent =
+                                                  await viewModel
+                                                      .handleAppointment(
                                                     clinicId: clinic.id,
-                                                    appointmentId: requestDoc.id,
+                                                    appointmentId:
+                                                    requestDoc.id,
                                                     action: 'accept',
+                                                  );
+
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                        smsSent
+                                                            ? "Appointment accepted and SMS sent to patient."
+                                                            : "Appointment accepted, but SMS failed.",
+                                                      ),
+                                                    ),
                                                   );
                                                 },
                                                 child: const Text("Accept"),
@@ -146,16 +151,15 @@ class DoctorAppointmentsScreen extends StatelessWidget {
                                             const SizedBox(width: 6),
                                             Visibility(
                                               visible: status == 'pending',
-                                              maintainSize: true,
-                                              maintainAnimation: true,
-                                              maintainState: true,
                                               child: ElevatedButton(
                                                 style: ElevatedButton.styleFrom(
-                                                    backgroundColor: Colors.red),
+                                                    backgroundColor:
+                                                    Colors.red),
                                                 onPressed: () {
                                                   viewModel.handleAppointment(
                                                     clinicId: clinic.id,
-                                                    appointmentId: requestDoc.id,
+                                                    appointmentId:
+                                                    requestDoc.id,
                                                     action: 'reject',
                                                   );
                                                 },
@@ -164,43 +168,47 @@ class DoctorAppointmentsScreen extends StatelessWidget {
                                             ),
                                             const SizedBox(width: 6),
 
-                                            // Reference Number Button
                                             if (patientId.isNotEmpty)
                                               FutureBuilder<DocumentSnapshot>(
-                                                future: FirebaseFirestore.instance
+                                                future: FirebaseFirestore
+                                                    .instance
                                                     .collection('patients')
                                                     .doc(patientId)
                                                     .get(),
                                                 builder: (context, snapshot) {
-                                                  String refNumber = 'Loading...';
+                                                  String refNumber =
+                                                      'Loading...';
                                                   if (snapshot.hasData &&
-                                                      snapshot.data!.exists) {
-                                                    final patientData = snapshot.data!.data() as Map<String, dynamic>;
-                                                    refNumber = patientData['referenceNumber'] ?? 'N/A';
+                                                      snapshot
+                                                          .data!.exists) {
+                                                    refNumber = (snapshot.data!
+                                                        .data() as Map<
+                                                        String,
+                                                        dynamic>)['referenceNumber'] ??
+                                                        'N/A';
                                                   }
 
                                                   return ElevatedButton(
-                                                    style: ElevatedButton.styleFrom(
-                                                        backgroundColor: status == 'accepted'
-                                                            ? Colors.green
-                                                            : Colors.blueAccent),
-                                                    onPressed: () {
-                                                      if (patientId.isNotEmpty) {
-                                                        Navigator.push(
-                                                          context,
-                                                          MaterialPageRoute(
-                                                            builder: (_) => DoctorPatientProfileView(
-                                                              referenceNumber: refNumber,
-                                                            ),
-                                                          ),
-                                                        );
-                                                      }
-                                                    },
-                                                    child: Text(
-                                                      refNumber,
-                                                      style: const TextStyle(
-                                                          fontWeight: FontWeight.bold),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor: status ==
+                                                          'accepted'
+                                                          ? Colors.green
+                                                          : Colors.blueAccent,
                                                     ),
+                                                    onPressed: () {
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              DoctorPatientProfileView(
+                                                                referenceNumber:
+                                                                refNumber,
+                                                              ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    child: Text(refNumber),
                                                   );
                                                 },
                                               ),
