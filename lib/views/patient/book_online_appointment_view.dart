@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../models/doctor/doctor_online_clinic_model.dart';
 
 class BookOnlineAppointmentView extends StatelessWidget {
@@ -56,6 +57,10 @@ class BookOnlineAppointmentView extends StatelessWidget {
       throw Exception("This slot is already booked");
     }
 
+    // 🔔 GET PATIENT FCM TOKEN
+    final String? fcmToken =
+    await FirebaseMessaging.instance.getToken();
+
     // 4️⃣ Create appointment
     await _firestore
         .collection('doctors')
@@ -69,6 +74,12 @@ class BookOnlineAppointmentView extends StatelessWidget {
       'status': 'pending',
       'patientId': userId,
       'patientReference': referenceNumber,
+
+      // ✅ MUST MATCH PYTHON SCRIPT
+      'patient_token': fcmToken,
+      'notified': false,
+      'reminder_sent': false,
+
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -104,7 +115,8 @@ class BookOnlineAppointmentView extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
                         children: [
                           Text("${slot.start} - ${slot.end}"),
 
@@ -122,36 +134,41 @@ class BookOnlineAppointmentView extends StatelessWidget {
                                 return const SizedBox(
                                   width: 24,
                                   height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
                                 );
                               }
 
-                              final matching = snapshot.data!.docs.where((doc) {
+                              final matching =
+                              snapshot.data!.docs.where((doc) {
                                 final data =
                                 doc.data() as Map<String, dynamic>;
                                 return data['start'] == slot.start &&
                                     data['end'] == slot.end &&
                                     (data['status'] == 'pending' ||
-                                        data['status'] == 'accepted');
+                                        data['status'] ==
+                                            'accepted');
                               }).toList();
 
-                              // ✅ SLOT AVAILABLE
                               if (matching.isEmpty) {
                                 return ElevatedButton(
                                   child: const Text("Book"),
                                   onPressed: () async {
                                     try {
                                       await bookAppointment(slot);
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
-                                          content:
-                                          Text("Appointment requested"),
+                                          content: Text(
+                                              "Appointment requested"),
                                         ),
                                       );
                                     } catch (e) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
-                                          content: Text(e.toString()),
+                                          content:
+                                          Text(e.toString()),
                                         ),
                                       );
                                     }
@@ -163,18 +180,18 @@ class BookOnlineAppointmentView extends StatelessWidget {
                               (matching.first.data()
                               as Map<String, dynamic>)['status'];
 
-                              // ⏳ PENDING
                               if (status == 'pending') {
                                 return const Text(
                                   "Booking in progress",
-                                  style: TextStyle(color: Colors.orange),
+                                  style: TextStyle(
+                                      color: Colors.orange),
                                 );
                               }
 
-                              // ✅ ACCEPTED
                               return const Text(
                                 "Booked",
-                                style: TextStyle(color: Colors.red),
+                                style:
+                                TextStyle(color: Colors.red),
                               );
                             },
                           ),

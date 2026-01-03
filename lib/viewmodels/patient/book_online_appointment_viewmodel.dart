@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // ✅ ADDED
 
 class BookOnlineAppointmentViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -33,6 +34,10 @@ class BookOnlineAppointmentViewModel extends ChangeNotifier {
         throw Exception('This slot is already booked');
       }
 
+      // 🔔 GET PATIENT FCM TOKEN (✅ ADDED)
+      final String? fcmToken =
+      await FirebaseMessaging.instance.getToken();
+
       await _firestore.collection('appointments').add({
         'doctorId': doctorId,
         'clinicId': clinicId,
@@ -43,6 +48,12 @@ class BookOnlineAppointmentViewModel extends ChangeNotifier {
         'slotEnd': slotEnd,
         'fees': fees,
         'clinicType': 'online',
+
+        // 🔔 NOTIFICATION FIELDS (✅ ADDED)
+        'patientFcmToken': fcmToken,
+        'statusNotified': false,
+        'reminder24hSent': false,
+
         'status': 'pending', // doctor will accept later
         'createdAt': FieldValue.serverTimestamp(),
       });
