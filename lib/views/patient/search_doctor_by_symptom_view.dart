@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/patient/search_doctor_by_symptom_viewmodel.dart';
+import 'patient_online_doctors_view.dart';
+import 'patient_physical_opd_view.dart';
 
 class SearchDoctorBySymptomView extends StatelessWidget {
   const SearchDoctorBySymptomView({super.key});
@@ -20,7 +22,6 @@ class SearchDoctorBySymptomView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  /// 🔹 Ask user what they are feeling
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -33,7 +34,6 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  /// 🔹 Text input for user symptoms
                   TextFormField(
                     controller: vm.messageController,
                     maxLines: 3,
@@ -46,7 +46,6 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  /// 🔍 Search Button
                   ElevatedButton.icon(
                     onPressed: vm.predictAndFetchDoctors,
                     icon: const Icon(Icons.search),
@@ -58,11 +57,9 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
 
-                  /// ⏳ Loader
                   if (vm.isLoading)
                     const Center(child: CircularProgressIndicator()),
 
-                  /// 🧠 Predicted Department
                   if (!vm.isLoading && vm.predictedSpecialty != null)
                     Container(
                       width: double.infinity,
@@ -82,51 +79,15 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                       ),
                     ),
 
-                  /// 📝 Department messages if no doctors available
-                  if (!vm.isLoading && vm.predictedDepartmentMessages.isNotEmpty)
-                    Column(
-                      children: vm.predictedDepartmentMessages.map((msg) {
-                        return Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange),
-                          ),
-                          child: Text(
-                            msg,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-
-                  /// ❌ No doctors found
-                  if (!vm.isLoading &&
-                      vm.matchedDoctors.isEmpty &&
-                      vm.predictedDepartmentMessages.isEmpty &&
-                      vm.predictedSpecialty != null)
-                    const Text(
-                      "No doctors available for this department.",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-
-                  /// ✅ Doctor results
                   if (!vm.isLoading && vm.matchedDoctors.isNotEmpty)
                     Expanded(
                       child: ListView.builder(
                         itemCount: vm.matchedDoctors.length,
                         itemBuilder: (context, index) {
                           final doctor = vm.matchedDoctors[index];
-                          final name =
-                              doctor['doctorName'] ?? 'Unknown Doctor';
-                          final departments =
-                          (doctor['departments'] as Set).join(', ');
+                          final name = doctor['doctorName'];
+                          final hasOnline = doctor['hasOnline'] == true;
+                          final hasPhysical = doctor['hasPhysical'] == true;
 
                           return Card(
                             elevation: 3,
@@ -139,8 +100,87 @@ class SearchDoctorBySymptomView extends StatelessWidget {
                                 Icons.person,
                                 color: Colors.blueAccent,
                               ),
-                              title: Text(name),
-                              subtitle: Text("Department: $departments"),
+                              title: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Text(
+                                "Department: ${vm.predictedSpecialty}",
+                              ),
+                              trailing: ElevatedButton(
+                                child: const Text("See Doctor"),
+                                onPressed: () {
+                                  /// ONLY ONLINE
+                                  if (hasOnline && !hasPhysical) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                        const PatientOnlineDoctorsView(),
+                                      ),
+                                    );
+                                  }
+                                  /// ONLY PHYSICAL
+                                  else if (!hasOnline && hasPhysical) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                        const PatientPhysicalOpdView(),
+                                      ),
+                                    );
+                                  }
+                                  /// BOTH → ASK USER
+                                  else {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(20),
+                                        ),
+                                      ),
+                                      builder: (_) => Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ListTile(
+                                            leading: const Icon(Icons.video_call),
+                                            title:
+                                            const Text("Online Consultation"),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                  const PatientOnlineDoctorsView(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading:
+                                            const Icon(Icons.local_hospital),
+                                            title:
+                                            const Text("Physical OPD Visit"),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                  const PatientPhysicalOpdView(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
                             ),
                           );
                         },

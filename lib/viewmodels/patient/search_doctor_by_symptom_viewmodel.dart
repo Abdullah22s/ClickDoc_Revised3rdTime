@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/doctor_api_service.dart';
@@ -6,24 +5,38 @@ import '../../services/doctor_api_service.dart';
 class SearchDoctorBySymptomViewModel extends ChangeNotifier {
   bool isLoading = false;
   String? predictedSpecialty;
+
+  /// Each item will contain:
+  /// {
+  ///   doctorId,
+  ///   doctorName,
+  ///   hasOnline,
+  ///   hasPhysical
+  /// }
   List<Map<String, dynamic>> matchedDoctors = [];
+
+  /// Used if no doctor is found
   List<String> predictedDepartmentMessages = [];
+
+  /// Dropdown selection per doctor
+  final Map<String, String> selectedClinicType = {};
 
   TextEditingController messageController = TextEditingController();
 
-  /// MAIN FUNCTION: Predict specialty and fetch doctors
+  /// MAIN FUNCTION
   Future<void> predictAndFetchDoctors() async {
     final text = messageController.text.trim();
     if (text.isEmpty) return;
 
     isLoading = true;
     predictedSpecialty = null;
-    matchedDoctors = [];
-    predictedDepartmentMessages = [];
+    matchedDoctors.clear();
+    predictedDepartmentMessages.clear();
+    selectedClinicType.clear();
     notifyListeners();
 
     try {
-      /// 1️⃣ Call your API to predict specialty
+      /// 1️⃣ Predict specialty
       predictedSpecialty = await DoctorApiService.predictSpecialty(text);
 
       if (predictedSpecialty == null || predictedSpecialty!.isEmpty) {
@@ -40,55 +53,56 @@ class SearchDoctorBySymptomViewModel extends ChangeNotifier {
         final doctorId = doc.id;
         final doctorData = doc.data();
 
-        final doctorEntry = {
-          'doctorId': doctorId,
-          'doctorName': doctorData['name'] ?? 'Unknown Doctor',
-          'departments': <String>{},
-        };
+        bool hasOnline = false;
+        bool hasPhysical = false;
 
-        /// Physical OPDs
-        final physicalOpds = await FirebaseFirestore.instance
+        /// 🔹 CHECK PHYSICAL OPDs
+        final physicalSnap = await FirebaseFirestore.instance
             .collection('doctors')
             .doc(doctorId)
             .collection('physical_opds')
+            .where('department', isEqualTo: predictedSpecialty)
+            .limit(1)
             .get();
 
-        for (var opd in physicalOpds.docs) {
-          if (opd['department'] == predictedSpecialty) {
-            doctorEntry['departments'].add(opd['department']);
-          }
+        if (physicalSnap.docs.isNotEmpty) {
+          hasPhysical = true;
         }
 
-        /// Online Clinics
-        final onlineClinics = await FirebaseFirestore.instance
+        /// 🔹 CHECK ONLINE CLINICS
+        final onlineSnap = await FirebaseFirestore.instance
             .collection('doctors')
             .doc(doctorId)
             .collection('online_clinics')
+            .where('department', isEqualTo: predictedSpecialty)
+            .limit(1)
             .get();
 
-        for (var clinic in onlineClinics.docs) {
-          if (clinic['department'] == predictedSpecialty) {
-            doctorEntry['departments'].add(clinic['department']);
-          }
+        if (onlineSnap.docs.isNotEmpty) {
+          hasOnline = true;
         }
 
-        if ((doctorEntry['departments'] as Set).isNotEmpty) {
-          matchedDoctors.add(doctorEntry);
+        /// 🔹 ADD DOCTOR IF ANY MATCH FOUND
+        if (hasOnline || hasPhysical) {
+          matchedDoctors.add({
+            'doctorId': doctorId,
+            'doctorName': doctorData['name'] ?? 'Unknown Doctor',
+            'hasOnline': hasOnline,
+            'hasPhysical': hasPhysical,
+          });
         }
       }
 
-      /// 3️⃣ Generate messages for departments with NO available doctor
-      predictedDepartmentMessages = [predictedSpecialty!].map((dept) {
-        final doctorExists = matchedDoctors.any(
-                (d) => (d['departments'] as Set).contains(dept));
-        return doctorExists ? null : "You may consult $dept.";
-      }).whereType<String>().toList(); // remove nulls
-
+      /// 3️⃣ MESSAGE IF NO DOCTOR FOUND
+      if (matchedDoctors.isEmpty) {
+        predictedDepartmentMessages
+            .add("You may consult $predictedSpecialty.");
+      }
     } catch (e) {
-      print("Error: $e");
+      debugPrint("SearchDoctorBySymptom error: $e");
       predictedSpecialty = null;
-      matchedDoctors = [];
-      predictedDepartmentMessages = [];
+      matchedDoctors.clear();
+      predictedDepartmentMessages.clear();
     }
 
     isLoading = false;
