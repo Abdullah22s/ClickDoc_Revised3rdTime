@@ -75,15 +75,5 @@ class PatientDashboardViewModel extends ChangeNotifier {
       label: "Search by Symptom",
       gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
     ),
-    PatientDashboardModel(
-      icon: Icons.bloodtype,
-      label: "Blood Bank",
-      gradient: const [Color(0xFFF7971E), Color(0xFFFFD200)],
-    ),
-    PatientDashboardModel(
-      icon: Icons.medical_services,
-      label: "Appointments",
-      gradient: const [Color(0xFF00C6FF), Color(0xFF0072FF)],
-    ),
   ];
 }

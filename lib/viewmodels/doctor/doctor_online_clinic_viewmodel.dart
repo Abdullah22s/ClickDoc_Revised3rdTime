@@ -19,7 +19,7 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
 
   final List<String> departments = [
     'Cardiology','Neurology','Dermatology','Orthopedics','Pediatrics',
-    'General Medicine','ENT','Psychiatry',
+    'General Physician','ENT','Psychiatry',
   ];
   String selectedDepartment = '';
 
