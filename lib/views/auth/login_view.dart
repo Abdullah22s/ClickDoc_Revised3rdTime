@@ -7,6 +7,7 @@ import 'role_selection_view.dart';
 import 'package:clickdoc1/views/patient/patient_dashboard_view.dart';
 import 'package:clickdoc1/views/doctor/doctor_dashboard_view.dart';
 import 'package:clickdoc1/viewmodels/doctor/doctor_dashboard_viewmodel.dart';
+import 'package:clickdoc1/views/ambulance/ambulance_dashboard_view.dart'; // ✅ NEW
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _googleService.signOut(); // forces Google account picker
+      await _googleService.signOut();
       final user = await _googleService.signInWithGoogle();
 
       if (user == null) {
@@ -60,8 +61,27 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // ✅ NEW: Check ambulance
+      final ambulanceQuery = await firestore
+          .collection('ambulances')
+          .where('email', isEqualTo: email)
+          .get();
+
+      if (ambulanceQuery.docs.isNotEmpty) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AmbulanceDashboardScreen(
+              ambulanceEmail: email,
+            ),
+          ),
+        );
+        return;
+      }
+
       // ✅ Check patient
-      final patientDoc = await firestore.collection('patients').doc(uid).get();
+      final patientDoc =
+      await firestore.collection('patients').doc(uid).get();
 
       if (patientDoc.exists) {
         Navigator.pushReplacement(
@@ -102,9 +122,9 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFFE3F2FD), // Light blue top
-              Color(0xFF90CAF9), // Soft blue middle
-              Color(0xFF64B5F6), // Slightly deeper blue bottom
+              Color(0xFFE3F2FD),
+              Color(0xFF90CAF9),
+              Color(0xFF64B5F6),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -118,14 +138,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 : Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Rounded hospital icon
                 Container(
                   height: 100,
                   width: 100,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     shape: BoxShape.circle,
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
                         color: Colors.black12,
                         blurRadius: 20,
@@ -160,7 +179,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 40),
 
-                // Google Sign-In Button
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -180,7 +198,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
-                      shadowColor: Colors.black.withOpacity(0.15),
                       elevation: 6,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),

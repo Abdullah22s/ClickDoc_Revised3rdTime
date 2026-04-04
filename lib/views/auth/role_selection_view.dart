@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../patient/patient_form_view.dart';
 import '../doctor/doctor_registration_form_view.dart';
 import '../doctor/doctor_dashboard_view.dart';
+import '../ambulance/ambulance_registration_form_view.dart'; // ✅ NEW
 import '../../viewmodels/auth/role_selection_viewmodel.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
@@ -13,7 +14,7 @@ class RoleSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => RoleSelectionViewModel(), // Fixed: use class, not function
+      create: (_) => RoleSelectionViewModel(),
       child: Consumer<RoleSelectionViewModel>(
         builder: (context, vm, _) {
           return Scaffold(
@@ -80,6 +81,7 @@ class RoleSelectionScreen extends StatelessWidget {
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 25),
+
                               const Text(
                                 'Please select your role:',
                                 style: TextStyle(
@@ -88,6 +90,7 @@ class RoleSelectionScreen extends StatelessWidget {
                                   color: Colors.white70,
                                 ),
                               ),
+
                               const SizedBox(height: 45),
 
                               Row(
@@ -134,7 +137,8 @@ class RoleSelectionScreen extends StatelessWidget {
                                   // Patient
                                   Expanded(
                                     child: GestureDetector(
-                                      onTap: () => vm.handlePatientSelection(context, userName),
+                                      onTap: () =>
+                                          vm.handlePatientSelection(context, userName),
                                       child: Container(
                                         height: 160,
                                         margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -169,6 +173,44 @@ class RoleSelectionScreen extends StatelessWidget {
                                     ),
                                   ),
                                 ],
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              // 🚑 NEW: Ambulance Service
+                              GestureDetector(
+                                onTap: () => vm.handleAmbulanceSelection(context),
+                                child: Container(
+                                  height: 140,
+                                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD32F2F),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 10,
+                                        offset: const Offset(2, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.local_shipping,
+                                          size: 50, color: Colors.white),
+                                      SizedBox(height: 10),
+                                      Text(
+                                        "Ambulance Service",
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
                           ),
