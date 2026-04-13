@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:just_audio/just_audio.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../viewmodels/ambulance/ambulance_dashboard_viewmodel.dart';
 
 class AmbulanceDashboardScreen extends StatefulWidget {
@@ -23,6 +23,11 @@ class _AmbulanceDashboardScreenState
   String? ambulanceId;
   bool _loaded = false;
 
+  /// 🎧 AUDIO PLAYER (IMPORTANT FIX)
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? currentlyPlayingUrl;
+  bool isPlaying = false;
+
   Future<void> loadAmbulanceId(AmbulanceDashboardViewModel vm) async {
     ambulanceId = await vm.getAmbulanceId(widget.ambulanceEmail);
 
@@ -36,20 +41,49 @@ class _AmbulanceDashboardScreenState
       "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
     );
 
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+    // still keeping maps external (fine)
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  /// 🎧 IN-APP AUDIO PLAYER (FIXED)
+  Future<void> _playAudio(String url) async {
+    try {
+      /// If same audio is playing → stop it
+      if (currentlyPlayingUrl == url && isPlaying) {
+        await _audioPlayer.stop();
+        setState(() {
+          isPlaying = false;
+          currentlyPlayingUrl = null;
+        });
+        return;
+      }
+
+      await _audioPlayer.setUrl(url);
+      await _audioPlayer.play();
+
+      setState(() {
+        currentlyPlayingUrl = url;
+        isPlaying = true;
+      });
+
+      /// Auto reset when finished
+      _audioPlayer.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed) {
+          setState(() {
+            isPlaying = false;
+            currentlyPlayingUrl = null;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint("Audio play error: $e");
     }
   }
 
-  /// 🎧 PLAY SOS AUDIO
-  Future<void> _playAudio(String url) async {
-    final Uri uri = Uri.parse(url);
-
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      debugPrint("Cannot open audio URL");
-    }
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   @override
@@ -108,6 +142,9 @@ class _AmbulanceDashboardScreenState
 
                     final String? audioUrl = data['audioUrl'];
 
+                    final bool isThisPlaying =
+                        currentlyPlayingUrl == audioUrl && isPlaying;
+
                     return Card(
                       margin: const EdgeInsets.all(12),
                       shape: RoundedRectangleBorder(
@@ -134,12 +171,20 @@ class _AmbulanceDashboardScreenState
 
                             const SizedBox(height: 10),
 
-                            /// 🎧 AUDIO BUTTON (NEW)
+                            /// 🎧 AUDIO BUTTON (IN-APP)
                             if (audioUrl != null)
                               ElevatedButton.icon(
                                 onPressed: () => _playAudio(audioUrl),
-                                icon: const Icon(Icons.play_arrow),
-                                label: const Text("Play SOS Audio"),
+                                icon: Icon(
+                                  isThisPlaying
+                                      ? Icons.stop
+                                      : Icons.play_arrow,
+                                ),
+                                label: Text(
+                                  isThisPlaying
+                                      ? "Stop Audio"
+                                      : "Play SOS Audio",
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.purple,
                                 ),
