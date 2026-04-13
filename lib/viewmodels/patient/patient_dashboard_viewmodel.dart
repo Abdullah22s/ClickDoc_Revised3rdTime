@@ -9,6 +9,9 @@ import 'package:path_provider/path_provider.dart';
 import '../../services/google_signin_service.dart';
 import '../../models/patient/patient_dashboard_model.dart';
 
+/// 🚑 ADD THIS IMPORT (needed for navigation)
+import '../../views/tracking/ambulance_tracking_screen.dart';
+
 class PatientDashboardViewModel extends ChangeNotifier {
   final String userName;
   final String userEmail;
@@ -56,6 +59,36 @@ class PatientDashboardViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// =========================================================
+  /// 🚨 NEW FEATURE: LISTEN FOR SOS STATUS (UBER STYLE)
+  /// =========================================================
+  void listenToSOSStatus(String requestId, BuildContext context) {
+    FirebaseFirestore.instance
+        .collection('emergency_requests')
+        .doc(requestId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data() as Map<String, dynamic>;
+
+      final status = data['status'];
+      final acceptedBy = data['acceptedBy'];
+
+      /// 🚑 WHEN AMBULANCE ACCEPTS
+      if (status == "accepted" && acceptedBy != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AmbulanceTrackingScreen(
+              requestId: requestId,
+            ),
+          ),
+        );
+      }
+    });
+  }
+
   Future<void> signOut(BuildContext context) async {
     await _googleService.signOut();
     if (context.mounted) {
@@ -64,7 +97,7 @@ class PatientDashboardViewModel extends ChangeNotifier {
   }
 
   /// ----------------------------------------------------------
-  /// 🔹 EMERGENCY SOS (FIXED AUDIO UPLOAD ONLY)
+  /// 🔹 EMERGENCY SOS (UNCHANGED LOGIC)
   /// ----------------------------------------------------------
   Future<void> sendEmergencySOS(BuildContext context) async {
     sosLoading = true;
@@ -77,9 +110,6 @@ class PatientDashboardViewModel extends ChangeNotifier {
 
       String? audioUrl;
 
-      // =========================
-      // ✅ FIXED AUDIO SECTION
-      // =========================
       try {
         if (await _audioRecorder.hasPermission()) {
           final tempDir = await getTemporaryDirectory();
@@ -98,7 +128,6 @@ class PatientDashboardViewModel extends ChangeNotifier {
           if (recordedPath != null && File(recordedPath).existsSync()) {
             final file = File(recordedPath);
 
-            // 🔥 WAIT UNTIL FILE IS FULLY READY
             await file.length();
 
             final storageRef = FirebaseStorage.instance
@@ -113,20 +142,14 @@ class PatientDashboardViewModel extends ChangeNotifier {
             if (uploadTask.state == TaskState.success) {
               audioUrl = await storageRef.getDownloadURL();
             }
-          } else {
-            debugPrint("Audio file not found after recording");
           }
         }
       } catch (audioErr) {
         debugPrint("Audio Upload Failed: $audioErr");
       }
 
-      // =========================
-      // 🚑 AMBULANCE FILTER (UNCHANGED)
-      // =========================
-      final ambulanceSnapshot = await FirebaseFirestore.instance
-          .collection('ambulances')
-          .get();
+      final ambulanceSnapshot =
+      await FirebaseFirestore.instance.collection('ambulances').get();
 
       List<String> nearbyAmbulanceIds = [];
       List<Map<String, dynamic>> nearbyAmbulances = [];
@@ -155,12 +178,11 @@ class PatientDashboardViewModel extends ChangeNotifier {
         }
       }
 
-      // =========================
-      // FIRESTORE SAVE (UNCHANGED)
-      // =========================
+      final docRef =
       await FirebaseFirestore.instance.collection('emergency_requests').add({
         "patientName": patientData?['name'] ?? userName,
         "phone": patientData?['phoneNumber'] ?? userEmail,
+        "patientEmail": userEmail, // ✅ ADD THIS (IMPORTANT)
         "lat": position.latitude,
         "lng": position.longitude,
         "audioUrl": audioUrl,
@@ -170,6 +192,9 @@ class PatientDashboardViewModel extends ChangeNotifier {
         "nearbyAmbulances": nearbyAmbulanceIds,
         "nearbyAmbulanceDetails": nearbyAmbulances,
       });
+
+      /// 🚑 START LISTENING AFTER SOS CREATION (IMPORTANT)
+      listenToSOSStatus(docRef.id, context);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

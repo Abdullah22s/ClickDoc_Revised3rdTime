@@ -29,6 +29,15 @@ class PatientDashboardScreen extends StatelessWidget {
       ),
       child: Consumer<PatientDashboardViewModel>(
         builder: (context, vm, _) {
+
+          /// 🚑 NEW: SAFE INIT HOOK (DO NOT REMOVE UI)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!vm.isLoading && vm.patientData != null) {
+              // Future-safe place if you want auto tracking restore later
+              // (no changes needed now, but ready for upgrade)
+            }
+          });
+
           return Stack(
             children: [
               Scaffold(
@@ -56,6 +65,7 @@ class PatientDashboardScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+
                       /// 👤 USER HEADER
                       Row(
                         children: [
@@ -92,15 +102,18 @@ class PatientDashboardScreen extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
-                      /// 🔴 EMERGENCY SOS BUTTON (BIG + CLEAR)
+                      /// 🔴 EMERGENCY SOS BUTTON
                       GestureDetector(
                         onTap: vm.sosLoading
                             ? null
-                            : () => vm.sendEmergencySOS(context),
+                            : () async {
+                          /// 🚑 NEW: ENSURE CONTEXT SAFE CALL
+                          await vm.sendEmergencySOS(context);
+                        },
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 18),
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 18),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(15),
@@ -217,8 +230,7 @@ class PatientDashboardScreen extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(
-                            color: Colors.redAccent),
+                        CircularProgressIndicator(color: Colors.redAccent),
                         SizedBox(height: 20),
                         Text(
                           "Sending Emergency SOS...",

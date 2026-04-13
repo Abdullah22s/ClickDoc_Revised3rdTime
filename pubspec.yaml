@@ -15,7 +15,7 @@ dependencies:
   # Firebase (aligned versions)
   firebase_core: ^2.24.2
   firebase_auth: ^4.17.4
-  cloud_firestore: ^4.4.5
+  cloud_firestore: any
   firebase_storage: ^11.6.5
   firebase_messaging: ^14.7.10
 
@@ -25,7 +25,10 @@ dependencies:
   flutter_local_notifications: ^17.0.0
   intl: ^0.18.1
   cupertino_icons: ^1.0.8
-  geolocator: ^10.1.1
+  geolocator: ^10.1.0
+  background_locator_2: ^2.0.6
+  google_maps_flutter: any
+  shared_preferences: ^2.2.3
 
   # Geo queries
   geoflutterfire2: ^2.3.15
