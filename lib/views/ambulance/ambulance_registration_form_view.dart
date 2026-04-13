@@ -20,9 +20,11 @@ class AmbulanceRegistrationFormScreen extends StatelessWidget {
         builder: (context, vm, _) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Ambulance Registration'),
+              title: const Text('Ambulance Registration 🚑'),
               centerTitle: true,
+              backgroundColor: Colors.redAccent,
             ),
+
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -36,6 +38,15 @@ class AmbulanceRegistrationFormScreen extends StatelessWidget {
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  /// 📍 Info Message
+                  const Text(
+                    "📍 Your live location will be used to receive nearby SOS requests.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
                   ),
 
                   const SizedBox(height: 25),
@@ -67,14 +78,19 @@ class AmbulanceRegistrationFormScreen extends StatelessWidget {
 
                   /// 🚨 Register Button
                   vm.isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? Column(
+                    children: const [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 10),
+                      Text("Getting location & registering..."),
+                    ],
+                  )
                       : SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => vm.registerAmbulance(
-                        context,
-                        userEmail,
-                      ),
+                      onPressed: () =>
+                          vm.registerAmbulance(context, userEmail),
+
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         padding: const EdgeInsets.symmetric(
@@ -84,6 +100,7 @@ class AmbulanceRegistrationFormScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
+
                       child: const Text(
                         "Register Ambulance",
                         style: TextStyle(fontSize: 18),

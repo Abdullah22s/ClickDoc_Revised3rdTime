@@ -23,6 +23,7 @@ dependencies:
   record : any
   path_provider: any
   url_launcher: any
+  geoflutterfire2: any
   http: ^1.2.0
 
   flutter_dotenv: ^5.1.0

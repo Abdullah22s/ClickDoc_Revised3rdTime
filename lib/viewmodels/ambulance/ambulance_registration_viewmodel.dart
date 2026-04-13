@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../views/ambulance/ambulance_dashboard_view.dart'; // ✅ NEW
+import 'package:geolocator/geolocator.dart';
+
+import '../../views/ambulance/ambulance_dashboard_view.dart';
 
 class AmbulanceRegistrationViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -11,7 +13,6 @@ class AmbulanceRegistrationViewModel extends ChangeNotifier {
 
   bool isLoading = false;
 
-  /// 🚑 Register Ambulance (WITHOUT LOCATION)
   Future<void> registerAmbulance(
       BuildContext context, String email) async {
     if (serviceNameController.text.isEmpty ||
@@ -24,16 +25,31 @@ class AmbulanceRegistrationViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      /// 📍 Get Location Permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      /// 📍 Get Current Location
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
       await _firestore.collection('ambulances').add({
         "name": serviceNameController.text.trim(),
         "email": email,
         "phone": phoneController.text.trim(),
+
+        /// ✅ LOCATION SAVED
+        "lat": position.latitude,
+        "lng": position.longitude,
+
         "createdAt": Timestamp.now(),
       });
 
       _showMessage(context, 'Ambulance Registered Successfully');
 
-      /// ✅ NEW: Redirect to Dashboard
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

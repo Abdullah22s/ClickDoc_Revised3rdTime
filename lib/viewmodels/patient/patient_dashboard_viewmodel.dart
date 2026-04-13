@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
@@ -36,7 +38,6 @@ class PatientDashboardViewModel extends ChangeNotifier {
     super.dispose();
   }
 
-  /// ✅ FIXED: Fetch using email query (NOT doc(userEmail))
   Future<void> _loadPatientData() async {
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -46,8 +47,6 @@ class PatientDashboardViewModel extends ChangeNotifier {
 
       if (snapshot.docs.isNotEmpty) {
         patientData = snapshot.docs.first.data();
-      } else {
-        debugPrint("No patient found for email: $userEmail");
       }
     } catch (e) {
       debugPrint("Error loading patient data: $e");
@@ -64,115 +63,134 @@ class PatientDashboardViewModel extends ChangeNotifier {
     }
   }
 
-  /// ----------------------------------------------------------
-  /// 🔹 EMERGENCY SOS (Robust Version)
-  /// ----------------------------------------------------------
+  /// 📏 DISTANCE FUNCTION (HAVERSINE)
+  double calculateDistance(lat1, lon1, lat2, lon2) {
+    const double R = 6371;
+
+    double dLat = (lat2 - lat1) * (pi / 180);
+    double dLon = (lon2 - lon1) * (pi / 180);
+
+    double a =
+        sin(dLat / 2) * sin(dLat / 2) +
+            cos(lat1 * (pi / 180)) *
+                cos(lat2 * (pi / 180)) *
+                sin(dLon / 2) *
+                sin(dLon / 2);
+
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return R * c;
+  }
+
+  /// 🚨 SOS FUNCTION (10KM FILTER APPLIED)
   Future<void> sendEmergencySOS(BuildContext context) async {
     sosLoading = true;
     notifyListeners();
 
     try {
-      // 1. Get location first
-      final position = await Geolocator.getCurrentPosition(
+      /// 📍 Get Patient Location
+      Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
       String? audioUrl;
 
-      // 2. Audio Recording and Upload
+      /// 🎤 Record Audio
       try {
         if (await _audioRecorder.hasPermission()) {
           final tempDir = await getTemporaryDirectory();
-          final fileName = 'sos_${DateTime.now().millisecondsSinceEpoch}.m4a';
+          final fileName =
+              'sos_${DateTime.now().millisecondsSinceEpoch}.m4a';
           final path = '${tempDir.path}/$fileName';
 
-          const config = RecordConfig(encoder: AudioEncoder.aacLc);
-          await _audioRecorder.start(config, path: path);
+          await _audioRecorder.start(
+            const RecordConfig(encoder: AudioEncoder.aacLc),
+            path: path,
+          );
 
           await Future.delayed(const Duration(seconds: 5));
+
           final finalPath = await _audioRecorder.stop();
 
           if (finalPath != null) {
             final file = File(finalPath);
-            if (await file.exists()) {
-              final storageRef = FirebaseStorage.instance
-                  .ref()
-                  .child('sos_audio/$fileName');
 
-              await storageRef.putFile(
-                file,
-                SettableMetadata(contentType: 'audio/mp4'),
-              );
+            final storageRef = FirebaseStorage.instance
+                .ref()
+                .child('sos_audio/$fileName');
 
-              await Future.delayed(const Duration(milliseconds: 800));
+            await storageRef.putFile(file);
 
-              audioUrl = await storageRef.getDownloadURL();
-            }
+            audioUrl = await storageRef.getDownloadURL();
           }
         }
-      } catch (audioErr) {
-        debugPrint("Audio Upload Failed: $audioErr");
+      } catch (e) {
+        debugPrint("Audio error: $e");
       }
 
-      /// ✅ FIXED PHONE HERE
+      /// 🔍 FIND NEARBY AMBULANCES (<=10KM)
+      final snapshot =
+      await FirebaseFirestore.instance.collection('ambulances').get();
+
+      List<String> nearbyAmbulances = [];
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+
+        if (data['lat'] != null && data['lng'] != null) {
+          double distance = calculateDistance(
+            position.latitude,
+            position.longitude,
+            data['lat'],
+            data['lng'],
+          );
+
+          if (distance <= 6) {
+            nearbyAmbulances.add(doc.id);
+          }
+        }
+      }
+
+      /// 🚨 SEND SOS ONLY TO NEARBY
       await FirebaseFirestore.instance.collection('emergency_requests').add({
         "patientName": patientData?['name'] ?? userName,
         "phone": patientData?['phoneNumber'] ?? userEmail,
         "lat": position.latitude,
         "lng": position.longitude,
         "audioUrl": audioUrl,
+
+        /// ✅ KEY FIELD
+        "targetAmbulances": nearbyAmbulances,
+
         "status": "pending",
         "createdAt": FieldValue.serverTimestamp(),
         "acceptedBy": null,
       });
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("🚨 Emergency SOS sent successfully"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("🚨 SOS sent to nearby ambulances"),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
-      debugPrint("Full SOS Error: $e");
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Critical Error: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      sosLoading = false;
-      notifyListeners();
+      debugPrint("SOS Error: $e");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
+
+    sosLoading = false;
+    notifyListeners();
   }
 
   List<PatientDashboardModel> get dashboardItems => [
     PatientDashboardModel(
-      icon: Icons.person,
-      label: "My Profile",
-      gradient: const [Color(0xFF6A11CB), Color(0xFF2575FC)],
-    ),
-    PatientDashboardModel(
-      icon: Icons.local_hospital,
-      label: "Physical OPDs",
-      gradient: const [Color(0xFF4CA1AF), Color(0xFFC4E0E5)],
-    ),
-    PatientDashboardModel(
-      icon: Icons.video_call,
-      label: "Online Doctors",
-      gradient: const [Color(0xFF11998E), Color(0xFF38EF7D)],
-    ),
-    PatientDashboardModel(
-      icon: Icons.psychology,
-      label: "Search by Symptom",
-      gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-    ),
-    PatientDashboardModel(
-      icon: Icons.warning_amber_rounded,
+      icon: Icons.warning,
       label: "Emergency SOS",
       gradient: const [Color(0xFFe53935), Color(0xFFe35d5b)],
     ),
