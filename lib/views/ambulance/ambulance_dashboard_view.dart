@@ -23,7 +23,6 @@ class _AmbulanceDashboardScreenState
   String? ambulanceId;
   bool _loaded = false;
 
-  /// 📍 Load ambulance document ID
   Future<void> loadAmbulanceId(AmbulanceDashboardViewModel vm) async {
     ambulanceId = await vm.getAmbulanceId(widget.ambulanceEmail);
 
@@ -32,17 +31,24 @@ class _AmbulanceDashboardScreenState
     });
   }
 
-  /// 🗺 Open Google Maps
   Future<void> _launchMaps(double lat, double lng) async {
     final Uri url = Uri.parse(
       "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
     );
 
     if (await canLaunchUrl(url)) {
-      await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      );
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  /// 🎧 PLAY SOS AUDIO
+  Future<void> _playAudio(String url) async {
+    final Uri uri = Uri.parse(url);
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      debugPrint("Cannot open audio URL");
     }
   }
 
@@ -52,7 +58,6 @@ class _AmbulanceDashboardScreenState
       create: (_) => AmbulanceDashboardViewModel(),
       child: Consumer<AmbulanceDashboardViewModel>(
         builder: (context, vm, _) {
-          /// 🚀 Load ambulance ID once
           if (!_loaded) {
             loadAmbulanceId(vm);
             return const Scaffold(
@@ -62,9 +67,7 @@ class _AmbulanceDashboardScreenState
 
           if (ambulanceId == null) {
             return const Scaffold(
-              body: Center(
-                child: Text("Ambulance not found ❌"),
-              ),
+              body: Center(child: Text("Ambulance not found ❌")),
             );
           }
 
@@ -74,19 +77,14 @@ class _AmbulanceDashboardScreenState
               backgroundColor: Colors.redAccent,
             ),
             body: StreamBuilder<QuerySnapshot>(
-              /// ✅ FIXED STREAM
               stream: vm.getSOSRequests(ambulanceId!),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Text("Error: ${snapshot.error}"),
-                  );
+                  return Center(child: Text("Error: ${snapshot.error}"));
                 }
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -108,6 +106,8 @@ class _AmbulanceDashboardScreenState
                     final double lng =
                     (data['lng'] ?? 0).toDouble();
 
+                    final String? audioUrl = data['audioUrl'];
+
                     return Card(
                       margin: const EdgeInsets.all(12),
                       shape: RoundedRectangleBorder(
@@ -127,13 +127,23 @@ class _AmbulanceDashboardScreenState
                             ),
                             const SizedBox(height: 5),
 
-                            Text(
-                              "📞 Phone: ${data['phone'] ?? 'N/A'}",
-                            ),
-
+                            Text("📞 Phone: ${data['phone'] ?? 'N/A'}"),
                             const SizedBox(height: 5),
 
                             Text("📍 Lat: $lat, Lng: $lng"),
+
+                            const SizedBox(height: 10),
+
+                            /// 🎧 AUDIO BUTTON (NEW)
+                            if (audioUrl != null)
+                              ElevatedButton.icon(
+                                onPressed: () => _playAudio(audioUrl),
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text("Play SOS Audio"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purple,
+                                ),
+                              ),
 
                             const Divider(),
 
@@ -153,11 +163,10 @@ class _AmbulanceDashboardScreenState
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: ElevatedButton.icon(
-                                    onPressed: () =>
-                                        vm.acceptRequest(
-                                          doc.id,
-                                          widget.ambulanceEmail,
-                                        ),
+                                    onPressed: () => vm.acceptRequest(
+                                      doc.id,
+                                      widget.ambulanceEmail,
+                                    ),
                                     icon: const Icon(Icons.check),
                                     label: const Text("Accept"),
                                     style: ElevatedButton.styleFrom(
