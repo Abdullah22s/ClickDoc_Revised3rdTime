@@ -21,23 +21,28 @@ class AmbulanceDashboardScreen extends StatefulWidget {
 class _AmbulanceDashboardScreenState
     extends State<AmbulanceDashboardScreen> {
   String? ambulanceId;
+  bool _loaded = false;
 
   /// 📍 Load ambulance document ID
-  Future<void> loadAmbulanceId(
-      AmbulanceDashboardViewModel vm) async {
-    ambulanceId =
-    await vm.getAmbulanceId(widget.ambulanceEmail);
-    setState(() {});
+  Future<void> loadAmbulanceId(AmbulanceDashboardViewModel vm) async {
+    ambulanceId = await vm.getAmbulanceId(widget.ambulanceEmail);
+
+    setState(() {
+      _loaded = true;
+    });
   }
 
   /// 🗺 Open Google Maps
   Future<void> _launchMaps(double lat, double lng) async {
     final Uri url = Uri.parse(
-        "https://www.google.com/maps/search/?api=1&query=$lat,$lng");
+      "https://www.google.com/maps/search/?api=1&query=$lat,$lng",
+    );
 
     if (await canLaunchUrl(url)) {
-      await launchUrl(url,
-          mode: LaunchMode.externalApplication);
+      await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
     }
   }
 
@@ -48,10 +53,18 @@ class _AmbulanceDashboardScreenState
       child: Consumer<AmbulanceDashboardViewModel>(
         builder: (context, vm, _) {
           /// 🚀 Load ambulance ID once
-          if (ambulanceId == null) {
+          if (!_loaded) {
             loadAmbulanceId(vm);
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (ambulanceId == null) {
+            return const Scaffold(
+              body: Center(
+                child: Text("Ambulance not found ❌"),
+              ),
             );
           }
 
@@ -61,7 +74,7 @@ class _AmbulanceDashboardScreenState
               backgroundColor: Colors.redAccent,
             ),
             body: StreamBuilder<QuerySnapshot>(
-              /// ✅ PASS ambulanceId HERE
+              /// ✅ FIXED STREAM
               stream: vm.getSOSRequests(ambulanceId!),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -70,14 +83,13 @@ class _AmbulanceDashboardScreenState
                   );
                 }
 
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                      child: CircularProgressIndicator());
+                    child: CircularProgressIndicator(),
+                  );
                 }
 
-                if (!snapshot.hasData ||
-                    snapshot.data!.docs.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(
                     child: Text("No nearby SOS requests 🚫"),
                   );
@@ -89,80 +101,67 @@ class _AmbulanceDashboardScreenState
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final doc = docs[index];
-                    final data =
-                    doc.data() as Map<String, dynamic>;
+                    final data = doc.data() as Map<String, dynamic>;
 
                     final double lat =
-                    (data['lat'] as num).toDouble();
+                    (data['lat'] ?? 0).toDouble();
                     final double lng =
-                    (data['lng'] as num).toDouble();
+                    (data['lng'] ?? 0).toDouble();
 
                     return Card(
                       margin: const EdgeInsets.all(12),
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                        BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(15),
                         child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              data['patientName'] ??
-                                  "Unknown",
+                              data['patientName'] ?? "Unknown",
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 5),
+
                             Text(
-                                "📞 Phone: ${data['phone'] ?? 'N/A'}"),
+                              "📞 Phone: ${data['phone'] ?? 'N/A'}",
+                            ),
+
                             const SizedBox(height: 5),
 
-                            /// 📍 Optional: show coordinates
-                            Text("📍 $lat, $lng"),
+                            Text("📍 Lat: $lat, Lng: $lng"),
 
                             const Divider(),
 
                             Row(
                               children: [
                                 Expanded(
-                                  child:
-                                  ElevatedButton.icon(
+                                  child: ElevatedButton.icon(
                                     onPressed: () =>
-                                        _launchMaps(
-                                            lat, lng),
-                                    icon:
-                                    const Icon(Icons.map),
-                                    label: const Text(
-                                        "Open Map"),
-                                    style:
-                                    ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                      Colors.blue,
+                                        _launchMaps(lat, lng),
+                                    icon: const Icon(Icons.map),
+                                    label: const Text("Open Map"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child:
-                                  ElevatedButton.icon(
+                                  child: ElevatedButton.icon(
                                     onPressed: () =>
                                         vm.acceptRequest(
                                           doc.id,
                                           widget.ambulanceEmail,
                                         ),
-                                    icon: const Icon(
-                                        Icons.check),
-                                    label:
-                                    const Text("Accept"),
-                                    style:
-                                    ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                      Colors.green,
+                                    icon: const Icon(Icons.check),
+                                    label: const Text("Accept"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
                                     ),
                                   ),
                                 ),

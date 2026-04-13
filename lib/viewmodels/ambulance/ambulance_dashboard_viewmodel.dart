@@ -21,14 +21,14 @@ class AmbulanceDashboardViewModel extends ChangeNotifier {
     return null;
   }
 
-  /// 🚨 STREAM ONLY NEARBY SOS REQUESTS (10KM FILTER APPLIED)
+  /// 🚨 STREAM ONLY NEARBY SOS REQUESTS (FIXED)
   Stream<QuerySnapshot> getSOSRequests(String ambulanceId) {
     return _firestore
         .collection('emergency_requests')
         .where('status', isEqualTo: 'pending')
 
-    /// ✅ KEY FILTER (ONLY ASSIGNED AMBULANCES)
-        .where('targetAmbulances', arrayContains: ambulanceId)
+    // ✅ FIXED FIELD NAME (was wrong before)
+        .where('nearbyAmbulances', arrayContains: ambulanceId)
 
         .orderBy('createdAt', descending: true)
         .snapshots();
@@ -37,7 +37,10 @@ class AmbulanceDashboardViewModel extends ChangeNotifier {
   /// ✅ ACCEPT REQUEST
   Future<void> acceptRequest(String docId, String ambulanceEmail) async {
     try {
-      await _firestore.collection('emergency_requests').doc(docId).update({
+      await _firestore
+          .collection('emergency_requests')
+          .doc(docId)
+          .update({
         "status": "accepted",
         "acceptedBy": ambulanceEmail,
       });
@@ -49,7 +52,10 @@ class AmbulanceDashboardViewModel extends ChangeNotifier {
   /// ❌ REJECT REQUEST
   Future<void> rejectRequest(String docId) async {
     try {
-      await _firestore.collection('emergency_requests').doc(docId).update({
+      await _firestore
+          .collection('emergency_requests')
+          .doc(docId)
+          .update({
         "status": "rejected",
       });
     } catch (e) {
