@@ -64,21 +64,22 @@ class PatientDashboardViewModel extends ChangeNotifier {
   }
 
   /// ----------------------------------------------------------
-  /// 🔹 EMERGENCY SOS (UPDATED WITH 6 KM AMBULANCE FILTER)
+  /// 🔹 EMERGENCY SOS (FIXED AUDIO UPLOAD ONLY)
   /// ----------------------------------------------------------
   Future<void> sendEmergencySOS(BuildContext context) async {
     sosLoading = true;
     notifyListeners();
 
     try {
-      // 1. Get location first
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
       String? audioUrl;
 
-      // 2. Audio Recording and Upload
+      // =========================
+      // ✅ FIXED AUDIO SECTION
+      // =========================
       try {
         if (await _audioRecorder.hasPermission()) {
           final tempDir = await getTemporaryDirectory();
@@ -87,36 +88,42 @@ class PatientDashboardViewModel extends ChangeNotifier {
           final path = '${tempDir.path}/$fileName';
 
           const config = RecordConfig(encoder: AudioEncoder.aacLc);
+
           await _audioRecorder.start(config, path: path);
 
           await Future.delayed(const Duration(seconds: 5));
-          final finalPath = await _audioRecorder.stop();
 
-          if (finalPath != null) {
-            final file = File(finalPath);
-            if (await file.exists()) {
-              final storageRef = FirebaseStorage.instance
-                  .ref()
-                  .child('sos_audio/$fileName');
+          final recordedPath = await _audioRecorder.stop();
 
-              await storageRef.putFile(
-                file,
-                SettableMetadata(contentType: 'audio/mp4'),
-              );
+          if (recordedPath != null && File(recordedPath).existsSync()) {
+            final file = File(recordedPath);
 
-              await Future.delayed(const Duration(milliseconds: 800));
+            // 🔥 WAIT UNTIL FILE IS FULLY READY
+            await file.length();
 
+            final storageRef = FirebaseStorage.instance
+                .ref()
+                .child('sos_audio/$fileName');
+
+            final uploadTask = await storageRef.putFile(
+              file,
+              SettableMetadata(contentType: 'audio/mp4'),
+            );
+
+            if (uploadTask.state == TaskState.success) {
               audioUrl = await storageRef.getDownloadURL();
             }
+          } else {
+            debugPrint("Audio file not found after recording");
           }
         }
       } catch (audioErr) {
         debugPrint("Audio Upload Failed: $audioErr");
       }
 
-      // ----------------------------------------------------------
-      // 🚑 NEW: FETCH AMBULANCES + FILTER 6 KM RADIUS
-      // ----------------------------------------------------------
+      // =========================
+      // 🚑 AMBULANCE FILTER (UNCHANGED)
+      // =========================
       final ambulanceSnapshot = await FirebaseFirestore.instance
           .collection('ambulances')
           .get();
@@ -148,7 +155,9 @@ class PatientDashboardViewModel extends ChangeNotifier {
         }
       }
 
-      /// SAVE SOS REQUEST
+      // =========================
+      // FIRESTORE SAVE (UNCHANGED)
+      // =========================
       await FirebaseFirestore.instance.collection('emergency_requests').add({
         "patientName": patientData?['name'] ?? userName,
         "phone": patientData?['phoneNumber'] ?? userEmail,
@@ -158,8 +167,6 @@ class PatientDashboardViewModel extends ChangeNotifier {
         "status": "pending",
         "createdAt": FieldValue.serverTimestamp(),
         "acceptedBy": null,
-
-        // ✅ NEW: nearby ambulances only
         "nearbyAmbulances": nearbyAmbulanceIds,
         "nearbyAmbulanceDetails": nearbyAmbulances,
       });
@@ -174,6 +181,7 @@ class PatientDashboardViewModel extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Full SOS Error: $e");
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
