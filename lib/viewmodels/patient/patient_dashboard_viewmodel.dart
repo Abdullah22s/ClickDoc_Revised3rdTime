@@ -137,7 +137,7 @@ class PatientDashboardViewModel extends ChangeNotifier {
           ambLng,
         );
 
-        if (distance <= 6000) {
+        if (distance <= 3000) {
           nearbyAmbulanceIds.add(doc.id);
           nearbyAmbulances.add({
             "id": doc.id,
