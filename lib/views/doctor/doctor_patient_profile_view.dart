@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../viewmodels/doctor/doctor_patient_profile_viewmodel.dart';
 import '../../models/patient/patient_model.dart';
 
@@ -31,6 +33,7 @@ class DoctorPatientProfileView extends StatelessWidget {
           }
 
           final patient = viewModel.patient!;
+
           return Scaffold(
             appBar: AppBar(
               title: const Text("Patient Profile"),
@@ -40,7 +43,9 @@ class DoctorPatientProfileView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Name and Reference Number
+                  /// =========================
+                  /// PROFILE CARD
+                  /// =========================
                   Card(
                     elevation: 4,
                     shape: RoundedRectangleBorder(
@@ -80,9 +85,12 @@ class DoctorPatientProfileView extends StatelessWidget {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 16),
 
-                  // Basic Info
+                  /// =========================
+                  /// BASIC INFO
+                  /// =========================
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
@@ -125,9 +133,12 @@ class DoctorPatientProfileView extends StatelessWidget {
                       ],
                     ),
                   ),
+
                   const SizedBox(height: 16),
 
-                  // Medical History
+                  /// =========================
+                  /// MEDICAL HISTORY
+                  /// =========================
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
@@ -164,6 +175,86 @@ class DoctorPatientProfileView extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 16),
+
+                  /// =========================
+                  /// REPORTS SECTION (NEW 🔥)
+                  /// =========================
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Reports",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 10),
+
+                          StreamBuilder<QuerySnapshot>(
+                            stream: viewModel.getReportsStream(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+
+                              if (!snapshot.hasData ||
+                                  snapshot.data!.docs.isEmpty) {
+                                return const Text(
+                                  "No reports uploaded",
+                                  style: TextStyle(color: Colors.grey),
+                                );
+                              }
+
+                              final reports = snapshot.data!.docs;
+
+                              return ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: reports.length,
+                                itemBuilder: (context, index) {
+                                  final data = reports[index];
+
+                                  final fileName =
+                                      data['fileName'] ?? 'Report';
+                                  final fileUrl = data['fileUrl'];
+                                  final fileType = data['fileType'];
+
+                                  return ListTile(
+                                    leading: Icon(
+                                      fileType == 'pdf'
+                                          ? Icons.picture_as_pdf
+                                          : Icons.image,
+                                      color: fileType == 'pdf'
+                                          ? Colors.red
+                                          : Colors.blue,
+                                    ),
+                                    title: Text(fileName),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.open_in_new),
+                                      onPressed: () {
+                                        viewModel.openReport(fileUrl);
+                                      },
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                   const SizedBox(height: 24),
                 ],
               ),
