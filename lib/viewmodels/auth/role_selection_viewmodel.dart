@@ -3,11 +3,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// ✅ ADDED IMPORTS
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/ambulance_location_service.dart';
+
 import '../../views/doctor/doctor_registration_form_view.dart';
 import '../../views/doctor/doctor_dashboard_view.dart';
 import '../../views/patient/patient_form_view.dart';
 import '../../views/ambulance/ambulance_registration_form_view.dart';
-import '../../views/ambulance/ambulance_dashboard_view.dart'; // ✅ NEW IMPORT
+import '../../views/ambulance/ambulance_dashboard_view.dart';
 import '../doctor/doctor_dashboard_viewmodel.dart';
 
 class RoleSelectionViewModel extends ChangeNotifier {
@@ -147,7 +151,19 @@ class RoleSelectionViewModel extends ChangeNotifier {
           .get();
 
       if (ambulanceQuery.docs.isNotEmpty) {
-        /// ✅ REDIRECT TO DASHBOARD INSTEAD OF SHOWING MESSAGE
+
+        /// ✅ NEW LOGIC STARTS HERE (NO CHANGE ABOVE)
+
+        final ambulanceId = ambulanceQuery.docs.first.id;
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString("ambulanceId", ambulanceId);
+
+        /// 🚑 START TRACKING AGAIN AFTER LOGIN
+        await AmbulanceLocationService.startTracking(ambulanceId);
+
+        /// ✅ NEW LOGIC ENDS HERE
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

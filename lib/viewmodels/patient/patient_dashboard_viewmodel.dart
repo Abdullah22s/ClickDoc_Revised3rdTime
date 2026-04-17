@@ -25,6 +25,9 @@ class PatientDashboardViewModel extends ChangeNotifier {
 
   final AudioRecorder _audioRecorder = AudioRecorder();
 
+  /// ✅ FIX: Prevent multiple navigation
+  bool _isTrackingOpened = false;
+
   PatientDashboardViewModel({
     required this.userName,
     required this.userEmail,
@@ -60,7 +63,7 @@ class PatientDashboardViewModel extends ChangeNotifier {
   }
 
   /// =========================================================
-  /// 🚨 NEW FEATURE: LISTEN FOR SOS STATUS (UBER STYLE)
+  /// 🚨 FIXED: LISTEN FOR SOS STATUS (NO CRASH)
   /// =========================================================
   void listenToSOSStatus(String requestId, BuildContext context) {
     FirebaseFirestore.instance
@@ -76,15 +79,24 @@ class PatientDashboardViewModel extends ChangeNotifier {
       final acceptedBy = data['acceptedBy'];
 
       /// 🚑 WHEN AMBULANCE ACCEPTS
-      if (status == "accepted" && acceptedBy != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AmbulanceTrackingScreen(
-              requestId: requestId,
+      if (status == "accepted" &&
+          acceptedBy != null &&
+          !_isTrackingOpened) {
+        _isTrackingOpened = true;
+
+        /// ✅ FIX: Safe navigation
+        Future.microtask(() {
+          if (!context.mounted) return;
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AmbulanceTrackingScreen(
+                requestId: requestId,
+              ),
             ),
-          ),
-        );
+          );
+        });
       }
     });
   }
@@ -178,11 +190,12 @@ class PatientDashboardViewModel extends ChangeNotifier {
         }
       }
 
-      final docRef =
-      await FirebaseFirestore.instance.collection('emergency_requests').add({
+      final docRef = await FirebaseFirestore.instance
+          .collection('emergency_requests')
+          .add({
         "patientName": patientData?['name'] ?? userName,
         "phone": patientData?['phoneNumber'] ?? userEmail,
-        "patientEmail": userEmail, // ✅ ADD THIS (IMPORTANT)
+        "patientEmail": userEmail,
         "lat": position.latitude,
         "lng": position.longitude,
         "audioUrl": audioUrl,
@@ -193,7 +206,7 @@ class PatientDashboardViewModel extends ChangeNotifier {
         "nearbyAmbulanceDetails": nearbyAmbulances,
       });
 
-      /// 🚑 START LISTENING AFTER SOS CREATION (IMPORTANT)
+      /// 🚑 START LISTENING AFTER SOS CREATION
       listenToSOSStatus(docRef.id, context);
 
       if (context.mounted) {
