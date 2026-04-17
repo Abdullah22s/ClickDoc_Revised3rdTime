@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../models/patient/patient_profile_model.dart';
 import '../../viewmodels/patient/patient_profile_viewmodel.dart';
 
@@ -22,19 +24,25 @@ class PatientProfileView extends StatelessWidget {
                 ? const Center(child: CircularProgressIndicator())
                 : vm.patient == null
                 ? const Center(child: Text("No Profile Data Found"))
-                : _buildProfile(vm.patient!),
+                : _buildProfile(context, vm),
           );
         },
       ),
     );
   }
 
-  Widget _buildProfile(PatientProfileModel patient) {
+  Widget _buildProfile(
+      BuildContext context, PatientProfileViewModel vm) {
+    final PatientProfileModel patient = vm.patient!;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
 
-        /// Reference Number
+        /// =========================
+        /// BASIC INFO
+        /// =========================
+
         Card(
           color: Colors.blue.shade50,
           child: ListTile(
@@ -60,7 +68,9 @@ class PatientProfileView extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        /// Medical History
+        /// =========================
+        /// MEDICAL HISTORY
+        /// =========================
         const Text(
           "Major Illnesses",
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -78,6 +88,83 @@ class PatientProfileView extends StatelessWidget {
               backgroundColor: Colors.red.shade50,
             );
           }).toList(),
+        ),
+
+        const SizedBox(height: 25),
+
+        /// =========================
+        /// 📄 REPORTS SECTION
+        /// =========================
+        const Text(
+          "Medical Reports",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+
+        const SizedBox(height: 10),
+
+        ElevatedButton.icon(
+          onPressed: () {
+            vm.uploadReport();
+          },
+          icon: const Icon(Icons.upload_file),
+          label: const Text("Upload Report"),
+        ),
+
+        const SizedBox(height: 10),
+
+        /// REPORT LIST
+        SizedBox(
+          height: 320,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: vm.getReportsStream(),
+            builder: (context, snapshot) {
+
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (!snapshot.hasData) {
+                return const Center(child: Text("No data found"));
+              }
+
+              final docs = snapshot.data!.docs;
+
+              if (docs.isEmpty) {
+                return const Center(
+                  child: Text("No reports uploaded yet"),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final data =
+                  docs[index].data() as Map<String, dynamic>;
+
+                  return Card(
+                    child: ListTile(
+                      leading: Icon(
+                        data['fileType'] == 'pdf'
+                            ? Icons.picture_as_pdf
+                            : Icons.image,
+                        color: Colors.red,
+                      ),
+                      title: Text(
+                        data['fileName'] ?? "Unnamed File",
+                      ),
+                      subtitle: const Text("Tap to open/download"),
+                      onTap: () {
+                        final url = data['fileUrl'];
+                        if (url != null) {
+                          vm.openReport(url);
+                        }
+                      },
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ],
     );

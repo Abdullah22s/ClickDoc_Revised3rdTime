@@ -34,10 +34,12 @@ dependencies:
 
   record: any
   path_provider: any
-  url_launcher: any
+  url_launcher: ^6.3.0
   http: ^1.2.0
   flutter_dotenv: ^5.1.0
   just_audio: ^0.9.40
+  file_picker: ^8.0.0
+
 
 dev_dependencies:
   flutter_test:
