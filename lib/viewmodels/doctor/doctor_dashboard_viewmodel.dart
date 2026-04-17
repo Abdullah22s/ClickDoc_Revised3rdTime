@@ -17,5 +17,8 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     DoctorDashboardModel(icon: Icons.calendar_today, label: 'Appointments'),
     DoctorDashboardModel(icon: Icons.local_hospital, label: 'Physical OPD'),
     DoctorDashboardModel(icon: Icons.medical_services, label: 'Online Clinic'),
+
+    /// ✅ NEW (ONLY ADDITION — nothing else changed)
+    DoctorDashboardModel(icon: Icons.people, label: 'Current Patients'),
   ];
 }

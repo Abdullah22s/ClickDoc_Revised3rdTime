@@ -16,7 +16,8 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
   final Map<String, String> patientRefs = {};
 
   /// 🔹 Direct SMSMobileAPI key
-  final String smsApiKey = 'ee3c7010a3b059e955c1d1ffd8805e0d27b940ecc4240ca0';
+  final String smsApiKey =
+      'ee3c7010a3b059e955c1d1ffd8805e0d27b940ecc4240ca0';
 
   DoctorAppointmentsViewModel() {
     fetchAppointments();
@@ -44,7 +45,8 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
       appointments = snapshot.docs
           .where((doc) {
         final endDateTime = doc['endDateTime'] as Timestamp?;
-        return endDateTime != null && endDateTime.toDate().isAfter(now);
+        return endDateTime != null &&
+            endDateTime.toDate().isAfter(now);
       })
           .map(
             (doc) => DoctorAppointment.fromMap(
@@ -91,6 +93,20 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
           final phone = patientData['phoneNumber'] ?? '';
           final name = patientData['name'] ?? 'Patient';
 
+          /// 🔥 NEW (ADDED ONLY — HISTORY FEATURE)
+          final referenceNumber =
+              patientData['referenceNumber'] ?? '';
+
+          await _firestore.collection('doctor_patient_history').add({
+            'doctorId': doctorId,
+            'patientId': patientId,
+            'referenceNumber': referenceNumber,
+            'acceptedAt': FieldValue.serverTimestamp(),
+            'status': 'active',
+          });
+
+          print("✅ Patient added to history");
+
           print('📞 Patient phone: $phone');
 
           final clinicDoc = await _firestore
@@ -131,7 +147,7 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
     final uri = Uri.parse(
       'https://api.smsmobileapi.com/sendsms'
           '?apikey=$smsApiKey'
-          '&recipients=${phone.replaceAll('+', '')}' // numeric only
+          '&recipients=${phone.replaceAll('+', '')}'
           '&message=${Uri.encodeComponent(message)}'
           '&sendsms=1',
     );
@@ -155,7 +171,8 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
       return patientRefs[patientId]!;
     }
 
-    final doc = await _firestore.collection('patients').doc(patientId).get();
+    final doc =
+    await _firestore.collection('patients').doc(patientId).get();
 
     if (doc.exists) {
       final ref = doc.data()?['referenceNumber'] ?? 'N/A';

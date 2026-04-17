@@ -5,6 +5,9 @@ import 'doctor_physical_opd_view.dart';
 import 'doctor_online_clinic_view.dart';
 import 'doctor_appointments_view.dart';
 
+/// 🔥 NEW IMPORT (ONLY ADDITION)
+import 'doctor_current_patients_view.dart';
+
 class DoctorDashboardScreen extends StatelessWidget {
   final DoctorDashboardViewModel viewModel;
 
@@ -33,7 +36,6 @@ class DoctorDashboardScreen extends StatelessWidget {
           ),
         ),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -191,6 +193,16 @@ class DoctorDashboardScreen extends StatelessWidget {
         context,
         MaterialPageRoute(
           builder: (_) => DoctorOnlineClinicScreen(),
+        ),
+      );
+    }
+
+    /// 🔥 NEW NAVIGATION (ONLY ADDITION)
+    else if (label == 'Current Patients') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const DoctorCurrentPatientsView(),
         ),
       );
     }
