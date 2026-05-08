@@ -6,7 +6,7 @@ import '../../views/patient/patient_profile_view.dart';
 import '../../views/patient/patient_physical_opd_view.dart';
 import '../../views/patient/patient_online_doctors_view.dart';
 import '../../views/patient/search_doctor_by_symptom_view.dart';
-import '../../views/patient/patient_prescriptions_view.dart'; // 💊 ADDED IMPORT
+import '../../views/patient/patient_prescriptions_view.dart';
 
 class PatientDashboardScreen extends StatelessWidget {
   final String userName;
@@ -30,303 +30,446 @@ class PatientDashboardScreen extends StatelessWidget {
       ),
       child: Consumer<PatientDashboardViewModel>(
         builder: (context, vm, _) {
-
-          /// 🚑 NEW: SAFE INIT HOOK (DO NOT REMOVE UI)
+          /// 🚑 SAFE INIT HOOK (PRESERVED)
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!vm.isLoading && vm.patientData != null) {
               // Future-safe place if you want auto tracking restore later
-              // (no changes needed now, but ready for upgrade)
             }
           });
 
-          return Stack(
-            children: [
-              Scaffold(
-                appBar: AppBar(
-                  backgroundColor: Colors.blueAccent,
-                  elevation: 0,
-                  leading: IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    onPressed: () => vm.signOut(context),
-                  ),
-                  title: const Text(
-                    "Patient Dashboard",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-
-                body: vm.isLoading
-                    ? const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.blueAccent,
-                  ),
-                )
-                    : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-
-                      /// 👤 USER HEADER
-                      Row(
+          return Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC), // Warmer, softer background
+            body: Stack(
+              children: [
+                SafeArea(
+                  child: vm.isLoading
+                      ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF3B82F6), // Friendly blue
+                    ),
+                  )
+                      : SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24.0, vertical: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundColor: Colors.grey[200],
-                            backgroundImage: userPhotoUrl != null
-                                ? NetworkImage(userPhotoUrl!)
-                                : const AssetImage(
-                                'assets/images/default_avatar.png')
-                            as ImageProvider,
+                          /// 👤 FRIENDLY USER HEADER
+                          _buildModernHeader(context, vm),
+
+                          const SizedBox(height: 30),
+
+                          /// 🔴 PREMIUM EMERGENCY SOS BUTTON
+                          _buildEmergencyButton(context, vm),
+
+                          const SizedBox(height: 32),
+
+                          const Text(
+                            "Our Services",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.5,
+                            ),
                           ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "Welcome back,",
-                                style: TextStyle(
-                                    color: Colors.grey, fontSize: 14),
+
+                          const SizedBox(height: 16),
+
+                          /// 📦 GLOWING FEATURES GRID
+                          _buildServicesGrid(context),
+
+                          const SizedBox(height: 32),
+
+                          /// 🧾 FRIENDLY MEDICAL INFO CARD
+                          if (vm.patientData != null) ...[
+                            const Text(
+                              "Your Medical Profile",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
                               ),
-                              Text(
-                                userName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          )
+                            ),
+                            const SizedBox(height: 12),
+                            _buildMedicalSummaryCard(vm.patientData!),
+                            const SizedBox(height: 30),
+                          ]
                         ],
                       ),
-
-                      const SizedBox(height: 20),
-
-                      /// 🔴 EMERGENCY SOS BUTTON
-                      GestureDetector(
-                        onTap: vm.sosLoading
-                            ? null
-                            : () async {
-                          /// 🚑 NEW: ENSURE CONTEXT SAFE CALL
-                          await vm.sendEmergencySOS(context);
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding:
-                          const EdgeInsets.symmetric(vertical: 18),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.red.withOpacity(0.4),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              )
-                            ],
-                          ),
-                          child: const Column(
-                            children: [
-                              Icon(Icons.warning,
-                                  color: Colors.white, size: 35),
-                              SizedBox(height: 5),
-                              Text(
-                                "EMERGENCY SOS",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      /// 📦 OTHER FEATURES GRID
-                      Expanded(
-                        child: GridView.count(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 15,
-                          crossAxisSpacing: 15,
-                          childAspectRatio: 1.2,
-                          children: [
-                            _gridItem(
-                                icon: Icons.person,
-                                label: "My Profile",
-                                color: Colors.blue,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        PatientProfileView(
-                                            userEmail: userEmail),
-                                  ),
-                                )),
-                            _gridItem(
-                                icon: Icons.local_hospital,
-                                label: "Physical OPDs",
-                                color: Colors.teal,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                    const PatientPhysicalOpdView(),
-                                  ),
-                                )),
-                            _gridItem(
-                                icon: Icons.video_call,
-                                label: "Online Doctors",
-                                color: Colors.green,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                    const PatientOnlineDoctorsView(),
-                                  ),
-                                )),
-                            _gridItem(
-                                icon: Icons.psychology,
-                                label: "Search by Symptom",
-                                color: Colors.deepPurple,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                    const SearchDoctorBySymptomView(),
-                                  ),
-                                )),
-                            /// 💊 NEW: MY PRESCRIPTIONS BUTTON
-                            _gridItem(
-                                icon: Icons.medication,
-                                label: "My Prescriptions",
-                                color: Colors.indigo,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        PatientPrescriptionsView(
-                                            userEmail: userEmail),
-                                  ),
-                                )),
-                          ],
-                        ),
-                      ),
-
-                      /// 🧾 MEDICAL INFO
-                      if (vm.patientData != null) ...[
-                        const Text(
-                          "Your Medical Info",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueAccent,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        _infoTile("Age", vm.patientData!['age']),
-                        _infoTile("Weight", vm.patientData!['weight']),
-                        _infoTile("Gender", vm.patientData!['gender']),
-                      ]
-                    ],
-                  ),
-                ),
-              ),
-
-              /// 🔴 SOS LOADING OVERLAY
-              if (vm.sosLoading)
-                Container(
-                  color: Colors.black54,
-                  child: const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: Colors.redAccent),
-                        SizedBox(height: 20),
-                        Text(
-                          "Sending Emergency SOS...",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 5),
-                        Text(
-                          "Recording audio & finding nearby ambulances",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ],
                     ),
                   ),
                 ),
-            ],
+
+                /// 🔴 SOS LOADING OVERLAY (PRESERVED)
+                if (vm.sosLoading)
+                  Container(
+                    color: Colors.black87,
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(color: Colors.redAccent),
+                          SizedBox(height: 24),
+                          Text(
+                            "Sending Emergency SOS...",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            "Recording audio & finding nearby ambulances",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           );
         },
       ),
     );
   }
 
-  /// 🔹 GRID ITEM
-  Widget _gridItem({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(15),
+  /// 🔹 HEADER
+  Widget _buildModernHeader(BuildContext context, PatientDashboardViewModel vm) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFF3B82F6), width: 2.5), // Friendly blue ring
+          ),
+          child: CircleAvatar(
+            radius: 28,
+            backgroundColor: Colors.white,
+            backgroundImage: userPhotoUrl != null
+                ? NetworkImage(userPhotoUrl!)
+                : const AssetImage('assets/images/default_avatar.png')
+            as ImageProvider,
+          ),
         ),
-        child: Column(
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Good to see you,",
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                userName,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFEF4444).withOpacity(0.15), // Soft red glow for logout
+                blurRadius: 12,
+                spreadRadius: 2,
+              )
+            ],
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444)),
+            tooltip: 'Logout',
+            onPressed: () => vm.signOut(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 🔹 EMERGENCY BUTTON
+  Widget _buildEmergencyButton(BuildContext context, PatientDashboardViewModel vm) {
+    return GestureDetector(
+      onTap: vm.sosLoading ? null : () async => await vm.sendEmergencySOS(context),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFEF4444).withOpacity(0.4), // Vibrant red shadow
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            )
+          ],
+        ),
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 30, color: Colors.white),
-            const SizedBox(height: 8),
+            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 32),
+            SizedBox(width: 12),
             Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
+              "EMERGENCY SOS",
+              style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
               ),
-            )
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// 🔹 INFO TILE
-  Widget _infoTile(String label, dynamic value) {
+  /// 🔹 REDESIGNED GLOWING GRID
+  Widget _buildServicesGrid(BuildContext context) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
+      childAspectRatio: 0.95,
+      children: [
+        _buildPremiumCard(
+          context: context,
+          icon: Icons.person_outline,
+          label: "My Profile",
+          subtitle: "Manage account",
+          iconColor: const Color(0xFF3B82F6), // Blue
+          bgColor: const Color(0xFFEFF6FF),
+          shadowColor: const Color(0xFF3B82F6).withOpacity(0.2), // Blue Glow
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => PatientProfileView(userEmail: userEmail)),
+          ),
+        ),
+        _buildPremiumCard(
+          context: context,
+          icon: Icons.local_hospital_outlined,
+          label: "Physical OPDs",
+          subtitle: "Book clinic visit",
+          iconColor: const Color(0xFF14B8A6), // Teal
+          bgColor: const Color(0xFFF0FDFA),
+          shadowColor: const Color(0xFF14B8A6).withOpacity(0.2), // Teal Glow
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PatientPhysicalOpdView()),
+          ),
+        ),
+        _buildPremiumCard(
+          context: context,
+          icon: Icons.videocam_outlined,
+          label: "Online Doctors",
+          subtitle: "Video consults",
+          iconColor: const Color(0xFF10B981), // Emerald
+          bgColor: const Color(0xFFECFDF5),
+          shadowColor: const Color(0xFF10B981).withOpacity(0.2), // Emerald Glow
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PatientOnlineDoctorsView()),
+          ),
+        ),
+        _buildPremiumCard(
+          context: context,
+          icon: Icons.psychology_outlined,
+          label: "Search Symptom",
+          subtitle: "AI health check",
+          iconColor: const Color(0xFF8B5CF6), // Purple
+          bgColor: const Color(0xFFF5F3FF),
+          shadowColor: const Color(0xFF8B5CF6).withOpacity(0.2), // Purple Glow
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SearchDoctorBySymptomView()),
+          ),
+        ),
+        _buildPremiumCard(
+          context: context,
+          icon: Icons.medication_outlined,
+          label: "Prescriptions",
+          subtitle: "View medications",
+          iconColor: const Color(0xFF6366F1), // Indigo
+          bgColor: const Color(0xFFEEF2FF),
+          shadowColor: const Color(0xFF6366F1).withOpacity(0.2), // Indigo Glow
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => PatientPrescriptionsView(userEmail: userEmail)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 🔹 PREMIUM CARD WIDGET WITH DYNAMIC SHADOW
+  Widget _buildPremiumCard({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color iconColor,
+    required Color bgColor,
+    required Color shadowColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor, // 🔥 Dynamic colored glow
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, size: 28, color: iconColor),
+            ),
+            const Spacer(),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF1E293B),
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 🔹 MEDICAL SUMMARY CARD
+  Widget _buildMedicalSummaryCard(Map<String, dynamic> data) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 4)
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.medical_information,
-              color: Colors.blueAccent),
-          const SizedBox(width: 10),
-          Text("$label: "),
-          Text(
-            "${value ?? "N/A"}",
-            style: const TextStyle(fontWeight: FontWeight.bold),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3B82F6).withOpacity(0.12), // Soft friendly blue glow
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildSummaryItem("Age", data['age']?.toString() ?? "N/A", "Yrs"),
+          _buildDivider(),
+          _buildSummaryItem("Weight", data['weight']?.toString() ?? "N/A", "Kg"),
+          _buildDivider(),
+          _buildSummaryItem("Gender", data['gender']?.toString() ?? "N/A", ""),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(String title, String value, String unit) {
+    return Column(
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF64748B),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                color: Color(0xFF0F172A),
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (unit.isNotEmpty) ...[
+              const SizedBox(width: 2),
+              Text(
+                unit,
+                style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ]
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      height: 40,
+      width: 1.5,
+      color: const Color(0xFFF1F5F9), // Softer divider line
     );
   }
 }
