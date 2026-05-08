@@ -11,219 +11,336 @@ class DoctorOnlineClinicScreen extends StatelessWidget {
       create: (_) => DoctorOnlineClinicViewModel(),
       child: Consumer<DoctorOnlineClinicViewModel>(
         builder: (context, vm, _) {
-          // Non-nullable reference
-          final viewModel = vm;
-
           return Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC), // Modern Slate Background
             appBar: AppBar(
-              title: const Text("Online Clinic Setup"),
-              backgroundColor: Colors.blueAccent,
+              title: const Text(
+                "Online Clinic Setup",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              centerTitle: true,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
             ),
-            body: viewModel.loading
+            body: vm.loading
                 ? const Center(child: CircularProgressIndicator())
                 : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Doctor Info
-                  Text(
-                    "Dr. ${viewModel.doctorName} ${viewModel.doctorQualification.isNotEmpty ? "(${viewModel.doctorQualification})" : ""}",
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Date Picker
-                  ElevatedButton(
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 180)),
-                      );
-                      if (picked != null) {
-                        viewModel.setSelectedDate(picked);
-                      }
-                    },
-                    child: Text(
-                      viewModel.selectedDate == null
-                          ? "Select Date"
-                          : "Date: ${viewModel.selectedDate!.toLocal().toString().split(' ')[0]}",
-                    ),
-                  ),
-
-                  if (viewModel.selectedDays.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      "Selected Day: ${viewModel.selectedDays.first}",
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                  ],
-
-                  const SizedBox(height: 16),
-
-                  // Department
-                  DropdownButtonFormField<String>(
-                    value: viewModel.selectedDepartment.isEmpty ? null : viewModel.selectedDepartment,
-                    decoration: const InputDecoration(
-                      labelText: "Department / Specialization",
-                      border: OutlineInputBorder(),
-                    ),
-                    items: viewModel.departments
-                        .map((d) => DropdownMenuItem(
-                      value: d,
-                      child: Text(d),
-                    ))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) viewModel.setDepartment(val);
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Time Pickers
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final picked = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (picked != null) viewModel.setStartTime(picked);
-                          },
-                          child: Text(
-                            viewModel.startTime == null
-                                ? "Start Time"
-                                : "Start: ${viewModel.formatTime(viewModel.startTime!)}",
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final picked = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (picked != null) viewModel.setEndTime(picked);
-                          },
-                          child: Text(
-                            viewModel.endTime == null
-                                ? "End Time"
-                                : "End: ${viewModel.formatTime(viewModel.endTime!)}",
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Fees
-                  TextField(
-                    controller: viewModel.feesController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: "Fees (PKR)",
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Appointment & Buffer Duration
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          value: viewModel.appointmentDuration,
-                          decoration: const InputDecoration(
-                            labelText: "Appointment Duration (minutes)",
-                            border: OutlineInputBorder(),
-                          ),
-                          items: viewModel.appointmentOptions
-                              .map((v) => DropdownMenuItem(
-                            value: v,
-                            child: Text("$v min"),
-                          ))
-                              .toList(),
-                          onChanged: (val) {
-                            if (val != null) viewModel.setAppointmentDuration(val);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          value: viewModel.bufferDuration,
-                          decoration: const InputDecoration(
-                            labelText: "Buffer Duration (minutes)",
-                            border: OutlineInputBorder(),
-                          ),
-                          items: viewModel.bufferOptions
-                              .map((v) => DropdownMenuItem(
-                            value: v,
-                            child: Text("$v min"),
-                          ))
-                              .toList(),
-                          onChanged: (val) {
-                            if (val != null) viewModel.setBufferDuration(val);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-
+                  _buildDoctorCard(vm),
                   const SizedBox(height: 24),
-
-                  // Preview Slots
-                  if (viewModel.previewSlots.isNotEmpty) ...[
-                    const Text(
-                      "Preview Slots",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    ...viewModel.previewSlots.map((s) => Text("${s['start']} - ${s['end']}")),
-                  ],
-
+                  _buildSectionTitle("Scheduling Details"),
+                  const SizedBox(height: 12),
+                  _buildInputCard(context, vm),
                   const SizedBox(height: 24),
-
-                  // Save Button
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: viewModel.isSaving ? null : viewModel.saveClinic,
-                      child: Text(viewModel.isSaving ? "Saving..." : "Save Online Clinic"),
-                    ),
-                  ),
-
+                  if (vm.previewSlots.isNotEmpty) ...[
+                    _buildSectionTitle("Preview Slots"),
+                    const SizedBox(height: 12),
+                    _buildSlotsPreview(vm),
+                  ],
                   const SizedBox(height: 32),
-
-                  // Created Clinics Dropdown
-                  if (viewModel.createdClinics.isNotEmpty) ...[
-                    const Divider(),
-                    const Text(
-                      "Created Online Clinics",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ClinicSlotsDropdown(vm: viewModel),
+                  _buildSaveButton(context, vm),
+                  const SizedBox(height: 40),
+                  if (vm.createdClinics.isNotEmpty) ...[
+                    _buildSectionTitle("Existing Schedules"),
+                    const SizedBox(height: 12),
+                    ClinicSlotsDropdown(vm: vm),
                   ],
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF1E293B),
+        letterSpacing: -0.5,
+      ),
+    );
+  }
+
+  Widget _buildDoctorCard(DoctorOnlineClinicViewModel vm) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5), // Emerald Background
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(
+              color: Color(0xFF10B981),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.videocam_rounded, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Dr. ${vm.doctorName}",
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 17,
+                      color: Color(0xFF065F46)
+                  ),
+                ),
+                Text(
+                  vm.doctorQualification.isNotEmpty ? vm.doctorQualification : "Healthcare Professional",
+                  style: const TextStyle(color: Color(0xFF047857), fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputCard(BuildContext context, DoctorOnlineClinicViewModel vm) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E293B).withOpacity(0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Date Selection
+          _buildActionRow(
+            icon: Icons.calendar_today_rounded,
+            label: vm.selectedDate == null
+                ? "Select Session Date"
+                : "Date: ${vm.selectedDate!.toLocal().toString().split(' ')[0]}",
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now(),
+                firstDate: DateTime.now(),
+                lastDate: DateTime.now().add(const Duration(days: 180)),
+              );
+              if (picked != null) vm.setSelectedDate(picked);
+            },
+          ),
+          const Divider(height: 32, thickness: 1, color: Color(0xFFF1F5F9)),
+
+          // Department
+          DropdownButtonFormField<String>(
+            value: vm.selectedDepartment.isEmpty ? null : vm.selectedDepartment,
+            decoration: _inputDecoration("Department", Icons.local_hospital_outlined),
+            items: vm.departments.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+            onChanged: (val) => val != null ? vm.setDepartment(val) : null,
+          ),
+          const SizedBox(height: 20),
+
+          // Time Row
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionRow(
+                  icon: Icons.access_time_rounded,
+                  label: vm.startTime == null ? "Start" : vm.formatTime(vm.startTime!),
+                  onTap: () async {
+                    final p = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                    if (p != null) vm.setStartTime(p);
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionRow(
+                  icon: Icons.timer_off_outlined,
+                  label: vm.endTime == null ? "End" : vm.formatTime(vm.endTime!),
+                  onTap: () async {
+                    final p = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                    if (p != null) vm.setEndTime(p);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Fees
+          TextField(
+            controller: vm.feesController,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+            decoration: _inputDecoration("Consultation Fee (PKR)", Icons.payments_outlined),
+          ),
+          const SizedBox(height: 20),
+
+          // Duration Row
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: vm.appointmentDuration,
+                  decoration: _inputDecoration("Duration", Icons.hourglass_top_rounded),
+                  items: vm.appointmentOptions.map((v) => DropdownMenuItem(value: v, child: Text("$v min"))).toList(),
+                  onChanged: (v) => v != null ? vm.setAppointmentDuration(v) : null,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: vm.bufferDuration,
+                  decoration: _inputDecoration("Buffer", Icons.coffee_outlined), // Fixed Icon
+                  items: vm.bufferOptions.map((v) => DropdownMenuItem(value: v, child: Text("$v min"))).toList(),
+                  onChanged: (v) => v != null ? vm.setBufferDuration(v) : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionRow({required IconData icon, required String label, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: const Color(0xFF3B82F6)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1E293B), fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: const Color(0xFF64748B), size: 20),
+      filled: true,
+      fillColor: const Color(0xFFF1F5F9),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5)
+      ),
+      labelStyle: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600, fontSize: 14),
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+    );
+  }
+
+  Widget _buildSlotsPreview(DoctorOnlineClinicViewModel vm) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: vm.previewSlots.map((s) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))
+              ]
+          ),
+          child: Text(
+            "${s['start']} - ${s['end']}",
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildSaveButton(BuildContext context, DoctorOnlineClinicViewModel vm) {
+    return SizedBox(
+      width: double.infinity,
+      height: 58,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF10B981), // Emerald 500
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          elevation: 0,
+        ),
+        onPressed: vm.isSaving
+            ? null
+            : () async {
+          final String? error = await vm.saveClinic();
+          if (context.mounted) {
+            if (error != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(error, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  backgroundColor: const Color(0xFFEF4444),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text("Clinic Schedule Created!"),
+                  backgroundColor: const Color(0xFF10B981),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+            }
+          }
+        },
+        child: vm.isSaving
+            ? const SizedBox(
+            height: 24,
+            width: 24,
+            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+        )
+            : const Text(
+            "Create Online Clinic",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5)
+        ),
       ),
     );
   }
@@ -242,42 +359,60 @@ class _ClinicSlotsDropdownState extends State<ClinicSlotsDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DropdownButton<Map<String, dynamic>>(
-          hint: const Text("Select Clinic to view slots"),
-          value: selectedClinic,
-          isExpanded: true,
-          items: widget.vm.createdClinics.map((clinic) {
-            final title = "${clinic['department']} (${clinic['startTime']} - ${clinic['endTime']})";
-            return DropdownMenuItem<Map<String, dynamic>>(
-              value: clinic,
-              child: Text(title),
-            );
-          }).toList(),
-          onChanged: (val) {
-            setState(() {
-              selectedClinic = val;
-            });
-          },
-        ),
-        const SizedBox(height: 8),
-        if (selectedClinic != null)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Slots for selected clinic:",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              ...widget.vm.getClinicSlots(selectedClinic!).map(
-                    (slot) => Text("${slot['start']} - ${slot['end']}"),
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))
+          ]
+      ),
+      child: Column(
+        children: [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<Map<String, dynamic>>(
+              hint: const Text("Select a schedule to view slots", style: TextStyle(color: Color(0xFF64748B))),
+              value: selectedClinic,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF3B82F6)),
+              items: widget.vm.createdClinics.map((clinic) {
+                return DropdownMenuItem<Map<String, dynamic>>(
+                  value: clinic,
+                  child: Text(
+                      "${clinic['department']} | ${clinic['startTime']} - ${clinic['endTime']}",
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1E293B))
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) => setState(() => selectedClinic = val),
+            ),
           ),
-      ],
+          if (selectedClinic != null) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(thickness: 1, color: Color(0xFFF1F5F9)),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.vm.getClinicSlots(selectedClinic!).map((slot) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    "${slot['start']} - ${slot['end']}",
+                    style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
+                );
+              }).toList(),
+            )
+          ]
+        ],
+      ),
     );
   }
 }

@@ -15,11 +15,10 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
 
   DateTime? selectedDate;
   List<String> selectedDays = [];
-  int repeatWeeks = 1;
 
   final List<String> departments = [
-    'Cardiology','Neurology','Dermatology','Orthopedics','Pediatrics',
-    'General Physician','ENT','Psychiatry',
+    'Cardiology', 'Neurology', 'Dermatology', 'Orthopedics', 'Pediatrics',
+    'General Physician', 'ENT', 'Psychiatry',
   ];
   String selectedDepartment = '';
 
@@ -67,7 +66,7 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
   }
 
   String _weekdayName(int day) {
-    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     return days[day - 1];
   }
 
@@ -101,7 +100,7 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
   }
 
   String formatTime(TimeOfDay t) =>
-      '${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}';
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
   void _generatePreviewSlots() {
     previewSlots.clear();
@@ -123,22 +122,24 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
   String _minToTime(int mins) {
     final h = mins ~/ 60;
     final m = mins % 60;
-    return '${h.toString().padLeft(2,'0')}:${m.toString().padLeft(2,'0')}';
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
   }
 
-  Future<void> saveClinic() async {
+  Future<String?> saveClinic() async {
     if (selectedDate == null ||
         selectedDepartment.isEmpty ||
         startTime == null ||
         endTime == null ||
-        feesController.text.isEmpty) return;
+        feesController.text.isEmpty) {
+      return "Please fill all fields.";
+    }
 
     isSaving = true;
     notifyListeners();
 
-    _generatePreviewSlots();
-
     try {
+      final now = DateTime.now();
+
       final startDateTime = DateTime(
           selectedDate!.year, selectedDate!.month, selectedDate!.day,
           startTime!.hour, startTime!.minute
@@ -147,6 +148,40 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
           selectedDate!.year, selectedDate!.month, selectedDate!.day,
           endTime!.hour, endTime!.minute
       );
+
+      // 🛑 LOGIC UPDATE: Prevent past times
+      if (startDateTime.isBefore(now)) {
+        isSaving = false;
+        notifyListeners();
+        return "Cannot create a clinic for a time that has already passed.";
+      }
+
+      if (endDateTime.isBefore(startDateTime)) {
+        isSaving = false;
+        notifyListeners();
+        return "End time cannot be before start time.";
+      }
+
+      // 🛑 OVERLAP VALIDATION
+      final querySnapshot = await _firestore
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('online_clinics')
+          .get();
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        final existingStart = (data['startDateTime'] as Timestamp).toDate();
+        final existingEnd = (data['endDateTime'] as Timestamp).toDate();
+
+        if (startDateTime.isBefore(existingEnd) && endDateTime.isAfter(existingStart)) {
+          isSaving = false;
+          notifyListeners();
+          return "Slot overlaps with an existing clinic on this day.";
+        }
+      }
+
+      _generatePreviewSlots();
 
       await _firestore
           .collection('doctors')
@@ -176,12 +211,14 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
       previewSlots.clear();
 
       await _loadCreatedClinics();
+      isSaving = false;
+      notifyListeners();
+      return null; // Success
     } catch (e) {
-      print("Error saving clinic: $e");
+      isSaving = false;
+      notifyListeners();
+      return "Error: $e";
     }
-
-    isSaving = false;
-    notifyListeners();
   }
 
   Future<void> _loadCreatedClinics() async {
@@ -193,7 +230,6 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
         .get();
 
     final now = DateTime.now();
-    // Delete past clinics automatically
     for (var doc in snap.docs) {
       final data = doc.data();
       if (data.containsKey('endDateTime')) {
@@ -223,28 +259,14 @@ class DoctorOnlineClinicViewModel extends ChangeNotifier {
 
   List<Map<String, String>> getClinicSlots(Map<String, dynamic> clinic) {
     if (clinic.containsKey('slots') && (clinic['slots'] as List).isNotEmpty) {
-      return List<Map<String, String>>.from(clinic['slots']);
+      return (clinic['slots'] as List).map((slot) {
+        return {
+          'start': slot['start'].toString(),
+          'end': slot['end'].toString(),
+        };
+      }).toList();
     }
-
-    // Fallback slot generation
-    final startParts = (clinic['startTime'] as String).split(":").map(int.parse).toList();
-    final endParts = (clinic['endTime'] as String).split(":").map(int.parse).toList();
-    final appDur = (clinic['appointmentDuration'] as num).toInt();
-    final bufDur = (clinic['bufferDuration'] as num).toInt();
-
-    int startMins = startParts[0] * 60 + startParts[1];
-    int endMins = endParts[0] * 60 + endParts[1];
-
-    List<Map<String,String>> slots = [];
-    while (startMins + appDur <= endMins) {
-      final endSlot = startMins + appDur;
-      slots.add({
-        'start':'${(startMins~/60).toString().padLeft(2,'0')}:${(startMins%60).toString().padLeft(2,'0')}',
-        'end':'${(endSlot~/60).toString().padLeft(2,'0')}:${(endSlot%60).toString().padLeft(2,'0')}'
-      });
-      startMins = endSlot + bufDur;
-    }
-    return slots;
+    return [];
   }
 
   @override
