@@ -45,8 +45,7 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
       appointments = snapshot.docs
           .where((doc) {
         final endDateTime = doc['endDateTime'] as Timestamp?;
-        return endDateTime != null &&
-            endDateTime.toDate().isAfter(now);
+        return endDateTime != null && endDateTime.toDate().isAfter(now);
       })
           .map(
             (doc) => DoctorAppointment.fromMap(
@@ -79,36 +78,29 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
     bool smsSent = false;
 
     if (action == 'accept') {
-      await docRef.update({'status': 'accepted'});
-
+      // 1. Get the appointment data to grab the exact slot time
       final appointmentDoc = await docRef.get();
-      final patientId = appointmentDoc['patientId'] ?? '';
+      final appointmentData = appointmentDoc.data() as Map<String, dynamic>? ?? {};
+      final patientId = appointmentData['patientId'] ?? '';
+      final String slotStart = appointmentData['start'] ?? '00:00';
+      final String slotEnd = appointmentData['end'] ?? '00:00';
+
+      // 2. Update status and initialize the vitals flag for the Operator
+      await docRef.update({
+        'status': 'accepted',
+        'vitalsEntered': false, // 🟢 Ensures operator can find this in their query
+      });
 
       if (patientId.isNotEmpty) {
-        final patientDoc =
-        await _firestore.collection('patients').doc(patientId).get();
+        final patientDoc = await _firestore.collection('patients').doc(patientId).get();
 
         if (patientDoc.exists) {
           final patientData = patientDoc.data()!;
           final phone = patientData['phoneNumber'] ?? '';
           final name = patientData['name'] ?? 'Patient';
+          final referenceNumber = patientData['referenceNumber'] ?? '';
 
-          /// 🔥 NEW (ADDED ONLY — HISTORY FEATURE)
-          final referenceNumber =
-              patientData['referenceNumber'] ?? '';
-
-          await _firestore.collection('doctor_patient_history').add({
-            'doctorId': doctorId,
-            'patientId': patientId,
-            'referenceNumber': referenceNumber,
-            'acceptedAt': FieldValue.serverTimestamp(),
-            'status': 'active',
-          });
-
-          print("✅ Patient added to history");
-
-          print('📞 Patient phone: $phone');
-
+          // 3. Fetch the clinic details (to get the exact date/department)
           final clinicDoc = await _firestore
               .collection('doctors')
               .doc(doctorId)
@@ -116,15 +108,28 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
               .doc(clinicId)
               .get();
 
-          final clinicData = clinicDoc.data()!;
-          final startTime = clinicData['startTime'] ?? '';
-          final endTime = clinicData['endTime'] ?? '';
+          final clinicData = clinicDoc.data() ?? {};
+
+          // 4. Add to history WITH the slot times and date so "Current Patients" tab works
+          await _firestore.collection('doctor_patient_history').add({
+            'doctorId': doctorId,
+            'patientId': patientId,
+            'referenceNumber': referenceNumber,
+            'department': clinicData['department'] ?? 'General',
+            'appointmentDate': clinicData['startDateTime'], // Required for date filtering
+            'slotStart': slotStart,
+            'slotEnd': slotEnd,
+            'acceptedAt': FieldValue.serverTimestamp(),
+            'status': 'active',
+          });
+
+          print("✅ Patient added to history");
+          print('📞 Patient phone: $phone');
 
           if (phone.isNotEmpty) {
             smsSent = await _sendSms(
               phone: phone,
-              message:
-              "Hello $name, your appointment has been confirmed. ",
+              message: "Hello $name, your appointment has been confirmed.",
             );
           } else {
             print('❌ Phone number is empty');
@@ -137,6 +142,42 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
 
     notifyListeners();
     return smsSent;
+  }
+
+  // 🟢 NEW: Start the appointment
+  Future<void> startAppointment(String clinicId, String appointmentId) async {
+    try {
+      await _firestore
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('online_clinics')
+          .doc(clinicId)
+          .collection('appointments')
+          .doc(appointmentId)
+          .update({'status': 'in_progress'});
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error starting appointment: $e");
+    }
+  }
+
+  // 🔴 NEW: End the appointment (Deletes the slot)
+  Future<void> endAppointment(String clinicId, String appointmentId) async {
+    try {
+      await _firestore
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('online_clinics')
+          .doc(clinicId)
+          .collection('appointments')
+          .doc(appointmentId)
+          .delete();
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error ending appointment: $e");
+    }
   }
 
   /// 🔹 Send SMS via SMSMobileAPI (direct API key)

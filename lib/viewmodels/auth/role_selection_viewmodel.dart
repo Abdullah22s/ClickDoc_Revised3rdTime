@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-/// ✅ ADDED IMPORTS
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/ambulance_location_service.dart';
 
+/// Service and View Imports
+import '../../services/ambulance_location_service.dart';
 import '../../views/doctor/doctor_registration_form_view.dart';
 import '../../views/doctor/doctor_dashboard_view.dart';
 import '../../views/patient/patient_form_view.dart';
 import '../../views/ambulance/ambulance_registration_form_view.dart';
 import '../../views/ambulance/ambulance_dashboard_view.dart';
+import '../../views/Operator/operator_registration_form_view.dart';
+import '../../views/Operator/operator_dashboard_view.dart';
 import '../doctor/doctor_dashboard_viewmodel.dart';
 
 class RoleSelectionViewModel extends ChangeNotifier {
@@ -19,79 +20,70 @@ class RoleSelectionViewModel extends ChangeNotifier {
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Sign out
+  /// Logs the user out of Firebase and Google
   Future<void> signOut(BuildContext context) async {
     try {
       await _auth.signOut();
       await _googleSignIn.signOut();
       Navigator.of(context).pushReplacementNamed('/login');
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error signing out: $e')));
+      debugPrint("Sign out error: $e");
+      _showError(context, "Error signing out: $e");
     }
   }
 
-  /// Doctor
+  /// ✅ Helper: Prevents a user from registering for multiple roles
+  Future<bool> _isAlreadyRegisteredElsewhere(String email, List<String> collections) async {
+    for (var col in collections) {
+      final query = await _firestore
+          .collection(col)
+          .where('email', isEqualTo: email)
+          .get();
+      if (query.docs.isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  /// 🩺 Doctor Selection Logic
   Future<void> handleDoctorSelection(BuildContext context) async {
     final user = _auth.currentUser;
     if (user == null) return;
-
     final email = user.email ?? '';
 
-    try {
-      final patientQuery = await _firestore
-          .collection('patients')
-          .where('email', isEqualTo: email)
-          .get();
+    // Check if they are already a patient, ambulance, or operator
+    if (await _isAlreadyRegisteredElsewhere(email, ['patients', 'ambulances', 'operators'])) {
+      _showError(context, "This email is already registered with another role.");
+      return;
+    }
 
-      if (patientQuery.docs.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'This email is already registered as a patient. Cannot register as doctor.'),
-          ),
-        );
-        return;
-      }
+    final docQuery = await _firestore.collection('doctors').where('email', isEqualTo: email).get();
 
-      final doctorQuery = await _firestore
-          .collection('doctors')
-          .where('email', isEqualTo: email)
-          .get();
-
-      if (doctorQuery.docs.isNotEmpty) {
-        final doctorViewModel = DoctorDashboardViewModel(
-          userName: user.displayName ?? 'Doctor',
-          userEmail: email,
-          userPhotoUrl: user.photoURL,
-        );
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DoctorDashboardScreen(viewModel: doctorViewModel),
-          ),
-        );
-        return;
-      }
-
+    if (docQuery.docs.isNotEmpty) {
+      final viewModel = DoctorDashboardViewModel(
+        userName: user.displayName ?? 'Doctor',
+        userEmail: email,
+        userPhotoUrl: user.photoURL,
+      );
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => DoctorRegistrationFormScreen(
-            userName: user.displayName ?? 'Doctor',
-            userEmail: email,
-            userPhotoUrl: user.photoURL,
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => DoctorDashboardScreen(viewModel: viewModel)),
       );
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      return;
     }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DoctorRegistrationFormScreen(
+          userName: user.displayName ?? '',
+          userEmail: email,
+          userPhotoUrl: user.photoURL,
+        ),
+      ),
+    );
   }
 
-  /// Patient
+  /// 👤 Patient Selection Logic
   void handlePatientSelection(BuildContext context, String? userName) {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -104,90 +96,87 @@ class RoleSelectionViewModel extends ChangeNotifier {
     );
   }
 
-  /// 🚑 Ambulance (UPDATED)
+  /// 🚑 Ambulance Selection Logic
   Future<void> handleAmbulanceSelection(BuildContext context) async {
     final user = _auth.currentUser;
     if (user == null) return;
-
     final email = user.email ?? '';
 
-    try {
-      // check patient
-      final patientQuery = await _firestore
-          .collection('patients')
-          .where('email', isEqualTo: email)
-          .get();
+    if (await _isAlreadyRegisteredElsewhere(email, ['patients', 'doctors', 'operators'])) {
+      _showError(context, "This email is registered with another role.");
+      return;
+    }
 
-      if (patientQuery.docs.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'This email is already registered as a patient. Cannot register as ambulance.'),
-          ),
-        );
-        return;
-      }
+    final ambQuery = await _firestore.collection('ambulances').where('email', isEqualTo: email).get();
 
-      // check doctor
-      final doctorQuery = await _firestore
-          .collection('doctors')
-          .where('email', isEqualTo: email)
-          .get();
+    if (ambQuery.docs.isNotEmpty) {
+      final id = ambQuery.docs.first.id;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("ambulanceId", id);
 
-      if (doctorQuery.docs.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'This email is already registered as a doctor. Cannot register as ambulance.'),
-          ),
-        );
-        return;
-      }
+      // Resume location tracking
+      await AmbulanceLocationService.startTracking(id);
 
-      // ✅ check ambulance
-      final ambulanceQuery = await _firestore
-          .collection('ambulances')
-          .where('email', isEqualTo: email)
-          .get();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => AmbulanceDashboardScreen(ambulanceEmail: email)),
+      );
+      return;
+    }
 
-      if (ambulanceQuery.docs.isNotEmpty) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AmbulanceRegistrationFormScreen(
+          userName: user.displayName ?? '',
+          userEmail: email,
+        ),
+      ),
+    );
+  }
 
-        /// ✅ NEW LOGIC STARTS HERE (NO CHANGE ABOVE)
+  /// 🎧 Operator Selection Logic (FIXED)
+  Future<void> handleOperatorSelection(BuildContext context) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final email = user.email ?? ''; // Variable declared here
 
-        final ambulanceId = ambulanceQuery.docs.first.id;
+    // 1. Cross-role check
+    if (await _isAlreadyRegisteredElsewhere(email, ['patients', 'doctors', 'ambulances'])) {
+      _showError(context, "This email is registered with another role.");
+      return;
+    }
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString("ambulanceId", ambulanceId);
+    // 2. Check if already exists in operators collection
+    final opQuery = await _firestore.collection('operators').where('email', isEqualTo: email).get();
 
-        /// 🚑 START TRACKING AGAIN AFTER LOGIN
-        await AmbulanceLocationService.startTracking(ambulanceId);
-
-        /// ✅ NEW LOGIC ENDS HERE
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AmbulanceDashboardScreen(
-              ambulanceEmail: email,
-            ),
-          ),
-        );
-        return;
-      }
-
-      // go to registration
-      Navigator.push(
+    if (opQuery.docs.isNotEmpty) {
+      // ✅ FIXED: Using 'email' variable instead of undefined 'operatorEmail'
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => AmbulanceRegistrationFormScreen(
-            userName: user.displayName ?? 'Ambulance',
-            userEmail: email,
-          ),
+          builder: (_) => OperatorDashboardScreen(operatorEmail: email),
         ),
       );
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      return;
     }
+
+    // 3. New user? Go to registration
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OperatorRegistrationFormScreen(
+          userName: user.displayName ?? '',
+          userEmail: email,
+        ),
+      ),
+    );
+  }
+
+  /// Helper to show SnackBars
+  void _showError(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+    );
   }
 }

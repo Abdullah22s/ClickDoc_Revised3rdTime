@@ -7,7 +7,8 @@ import 'role_selection_view.dart';
 import 'package:clickdoc1/views/patient/patient_dashboard_view.dart';
 import 'package:clickdoc1/views/doctor/doctor_dashboard_view.dart';
 import 'package:clickdoc1/viewmodels/doctor/doctor_dashboard_viewmodel.dart';
-import 'package:clickdoc1/views/ambulance/ambulance_dashboard_view.dart'; // ✅ NEW
+import 'package:clickdoc1/views/ambulance/ambulance_dashboard_view.dart';
+import 'package:clickdoc1/views/Operator/operator_dashboard_view.dart'; // ✅ Ensure path casing matches your folder
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final uid = user.uid;
-      final email = user.email ?? "";
+      final email = user.email ?? ""; // This is the variable we need!
       final name = user.displayName ?? "User";
       final photo = user.photoURL ?? "";
 
@@ -51,59 +52,47 @@ class _LoginScreenState extends State<LoginScreen> {
           userEmail: email,
           userPhotoUrl: photo,
         );
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DoctorDashboardScreen(viewModel: viewModel),
-          ),
-        );
+        _navigateTo(DoctorDashboardScreen(viewModel: viewModel));
         return;
       }
 
-      // ✅ NEW: Check ambulance
+      // ✅ Check ambulance
       final ambulanceQuery = await firestore
           .collection('ambulances')
           .where('email', isEqualTo: email)
           .get();
 
       if (ambulanceQuery.docs.isNotEmpty) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AmbulanceDashboardScreen(
-              ambulanceEmail: email,
-            ),
-          ),
-        );
+        _navigateTo(AmbulanceDashboardScreen(ambulanceEmail: email));
+        return;
+      }
+
+      // ✅ NEW: Check operator
+      final operatorQuery = await firestore
+          .collection('operators')
+          .where('email', isEqualTo: email)
+          .get();
+
+      if (operatorQuery.docs.isNotEmpty) {
+        // ✅ FIX: Changed 'operatorEmail: operatorEmail' to 'operatorEmail: email'
+        // ✅ FIX: Removed 'const' because 'email' is a dynamic value
+        _navigateTo(OperatorDashboardScreen(operatorEmail: email));
         return;
       }
 
       // ✅ Check patient
-      final patientDoc =
-      await firestore.collection('patients').doc(uid).get();
-
+      final patientDoc = await firestore.collection('patients').doc(uid).get();
       if (patientDoc.exists) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PatientDashboardScreen(
-              userName: patientDoc["name"] ?? name,
-              userEmail: email,
-              userPhotoUrl: photo,
-            ),
-          ),
-        );
+        _navigateTo(PatientDashboardScreen(
+          userName: patientDoc["name"] ?? name,
+          userEmail: email,
+          userPhotoUrl: photo,
+        ));
         return;
       }
 
       // ✅ New user → role selection
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RoleSelectionScreen(userName: name),
-        ),
-      );
+      _navigateTo(RoleSelectionScreen(userName: name));
     } catch (e) {
       debugPrint("Google Sign-In Error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,6 +103,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _navigateTo(Widget screen) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,93 +117,81 @@ class _LoginScreenState extends State<LoginScreen> {
         width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFFE3F2FD),
-              Color(0xFF90CAF9),
-              Color(0xFF64B5F6),
-            ],
+            colors: [Color(0xFFE3F2FD), Color(0xFF90CAF9), Color(0xFF42A5F5)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 30.0),
             child: _isLoading
                 ? const CircularProgressIndicator(color: Color(0xFF1565C0))
                 : Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  height: 100,
-                  width: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 20,
-                        offset: Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.local_hospital_rounded,
-                    color: Color(0xFF1565C0),
-                    size: 60,
-                  ),
-                ),
-                const SizedBox(height: 24),
+                _buildLogo(),
+                const SizedBox(height: 30),
                 const Text(
-                  'Welcome to ClickDoc',
+                  'ClickDoc',
                   style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0D47A1),
+                    letterSpacing: 1.2,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
                 const Text(
-                  'Book appointments with ease',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white70,
-                  ),
-                  textAlign: TextAlign.center,
+                  'Healthcare at your fingertips',
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
                 ),
-                const SizedBox(height: 40),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton.icon(
-                    onPressed: _handleSignIn,
-                    icon: Image.network(
-                      'https://developers.google.com/identity/images/g-logo.png',
-                      height: 24,
-                    ),
-                    label: const Text(
-                      'Sign in with Google',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      elevation: 6,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 60),
+                _buildGoogleButton(),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogo() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: const Icon(Icons.local_hospital_rounded,
+          color: Color(0xFF1565C0), size: 70),
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 58,
+      child: ElevatedButton.icon(
+        onPressed: _handleSignIn,
+        icon: Image.network(
+          'https://developers.google.com/identity/images/g-logo.png',
+          height: 24,
+        ),
+        label: const Text(
+          'Continue with Google',
+          style: TextStyle(
+              fontSize: 18, color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
     );

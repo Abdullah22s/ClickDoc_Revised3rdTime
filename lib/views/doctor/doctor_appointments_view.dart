@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:provider/provider.dart';
 import '../../viewmodels/doctor/doctor_appointments_viewmodel.dart';
 import 'doctor_patient_profile_view.dart';
 
 class DoctorAppointmentsScreen extends StatelessWidget {
-  // Using a consistent color palette from your Dashboard theme
   final Color primaryOrange = const Color(0xFFF97316);
   final Color bgOrange = const Color(0xFFFFF7ED);
   final Color slate900 = const Color(0xFF0F172A);
@@ -16,8 +14,6 @@ class DoctorAppointmentsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Note: If you are using Provider in your main.dart for this ViewModel,
-    // you can use context.watch. Otherwise, keeping your AnimatedBuilder logic.
     final viewModel = DoctorAppointmentsViewModel();
 
     return Scaffold(
@@ -200,7 +196,7 @@ class DoctorAppointmentsScreen extends StatelessWidget {
                 ],
               ),
               if (requests.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 ...requests.map((requestDoc) => _buildRequestActions(context, clinic, requestDoc, viewModel)),
               ]
             ],
@@ -210,124 +206,159 @@ class DoctorAppointmentsScreen extends StatelessWidget {
     );
   }
 
+  // 🚀 THE NEW STATE MACHINE FOR APPOINTMENTS
   Widget _buildRequestActions(BuildContext context, dynamic clinic, DocumentSnapshot requestDoc, DoctorAppointmentsViewModel viewModel) {
     final data = requestDoc.data() as Map<String, dynamic>;
     final status = data['status'] ?? 'pending';
+    final vitalsEntered = data['vitalsEntered'] ?? false;
     final patientId = data['patientId'] ?? '';
 
-    return Row(
+    return Column(
       children: [
-        if (status == 'pending') ...[
-          Expanded(
-            child: _smallButton(
-              label: "Accept",
-              color: const Color(0xFF10B981), // Emerald Green
-              onTap: () async {
-                final smsSent = await viewModel.handleAppointment(
-                  clinicId: clinic.id,
-                  appointmentId: requestDoc.id,
-                  action: 'accept',
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(smsSent ? "Accepted & SMS sent." : "Accepted, SMS failed."),
-                    behavior: SnackBarBehavior.floating,
-                  ));
-                }
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _smallButton(
-              label: "Reject",
-              color: const Color(0xFFEF4444), // Red
-              onTap: () => viewModel.handleAppointment(
-                clinicId: clinic.id,
-                appointmentId: requestDoc.id,
-                action: 'reject',
-              ),
-            ),
-          ),
-        ],
-        if (status != 'pending') ...[
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: status == 'accepted' ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  status.toUpperCase(),
-                  style: TextStyle(
-                    color: status == 'accepted' ? const Color(0xFF065F46) : const Color(0xFF991B1B),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-        const SizedBox(width: 8),
-        if (patientId.isNotEmpty)
-          FutureBuilder<DocumentSnapshot>(
-            future: FirebaseFirestore.instance.collection('patients').doc(patientId).get(),
-            builder: (context, snapshot) {
-              String refNumber = '...';
-              if (snapshot.hasData && snapshot.data!.exists) {
-                refNumber = (snapshot.data!.data() as Map<String, dynamic>)['referenceNumber'] ?? 'N/A';
-              }
-              return Expanded(
-                child: _smallButton(
-                  label: refNumber,
-                  color: primaryOrange, // Theme color
-                  onTap: () async {
-                    String fetchedDoctorName = "Doctor";
-                    final currentUser = FirebaseAuth.instance.currentUser;
-                    if (currentUser != null) {
-                      final docSnap = await FirebaseFirestore.instance.collection('doctors').doc(currentUser.uid).get();
-                      if (docSnap.exists) {
-                        fetchedDoctorName = (docSnap.data() as Map<String, dynamic>)['name'] ?? "Doctor";
-                      }
-                    }
-                    if (!context.mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => DoctorPatientProfileView(
-                          referenceNumber: refNumber,
-                          doctorName: fetchedDoctorName,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
+        Row(
+          children: [
+            // 🟢 STATE 1: PENDING (Accept/Reject)
+            if (status == 'pending') ...[
+              Expanded(child: _actionBtn(label: "Accept", color: const Color(0xFF10B981), onTap: () => _handleAccept(context, viewModel, clinic.id, requestDoc.id))),
+              const SizedBox(width: 8),
+              Expanded(child: _actionBtn(label: "Reject", color: const Color(0xFFEF4444), onTap: () => viewModel.handleAppointment(clinicId: clinic.id, appointmentId: requestDoc.id, action: 'reject'))),
+            ],
+
+            // 🟡 STATE 2: ACCEPTED but NO VITALS
+            if (status == 'accepted' && !vitalsEntered) ...[
+              Expanded(child: _actionBtn(label: "Waiting for Vitals...", color: Colors.grey.shade400, onTap: () {})),
+            ],
+
+            // 🔵 STATE 3: ACCEPTED and VITALS ENTERED
+            if (status == 'accepted' && vitalsEntered) ...[
+              Expanded(child: _actionBtn(label: "Check Vitals", color: const Color(0xFF3B82F6), onTap: () => _showVitalsDialog(context, data['vitals']))),
+              const SizedBox(width: 8),
+              Expanded(child: _actionBtn(label: "Start Appt", color: const Color(0xFF10B981), onTap: () => viewModel.startAppointment(clinic.id, requestDoc.id))),
+            ],
+
+            // 🔴 STATE 4: IN PROGRESS
+            if (status == 'in_progress') ...[
+              Expanded(child: _actionBtn(label: "End Appointment", color: const Color(0xFFEF4444), onTap: () => viewModel.endAppointment(clinic.id, requestDoc.id))),
+            ],
+
+            // 🔍 PROFILE BUTTON (Always visible if a patient is attached)
+            if (patientId.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              _buildPatientProfileButton(context, patientId),
+            ]
+          ],
+        ),
       ],
     );
   }
 
-  Widget _smallButton({required String label, required Color color, required VoidCallback onTap}) {
+  // Helper for checking vitals popup
+  void _showVitalsDialog(BuildContext context, dynamic vitalsData) {
+    final vitals = vitalsData as Map<String, dynamic>?;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.monitor_heart, color: primaryOrange),
+            const SizedBox(width: 8),
+            const Text("Patient Vitals", style: TextStyle(fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _vitalRow(Icons.bloodtype, "Blood Pressure", vitals?['bp'] ?? 'N/A'),
+            const Divider(),
+            _vitalRow(Icons.thermostat, "Temperature", vitals?['temp'] ?? 'N/A'),
+            const Divider(),
+            _vitalRow(Icons.air, "SpO2 (Oxygen)", vitals?['spo2'] ?? 'N/A'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _vitalRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: slate600),
+              const SizedBox(width: 8),
+              Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: slate600)),
+            ],
+          ),
+          Text(value, style: TextStyle(fontWeight: FontWeight.w900, color: slate900, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleAccept(BuildContext context, DoctorAppointmentsViewModel viewModel, String clinicId, String appId) async {
+    final smsSent = await viewModel.handleAppointment(clinicId: clinicId, appointmentId: appId, action: 'accept');
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(smsSent ? "Accepted & SMS sent." : "Accepted, SMS failed."),
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  Widget _buildPatientProfileButton(BuildContext context, String patientId) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('patients').doc(patientId).get(),
+      builder: (context, snapshot) {
+        String refNumber = '...';
+        if (snapshot.hasData && snapshot.data!.exists) {
+          refNumber = (snapshot.data!.data() as Map<String, dynamic>)['referenceNumber'] ?? 'N/A';
+        }
+        return Expanded(
+          flex: 0,
+          child: _actionBtn(
+            label: refNumber,
+            color: primaryOrange,
+            onTap: () async {
+              String fetchedDocName = "Doctor";
+              final user = FirebaseAuth.instance.currentUser;
+              if (user != null) {
+                final docSnap = await FirebaseFirestore.instance.collection('doctors').doc(user.uid).get();
+                if (docSnap.exists) fetchedDocName = (docSnap.data() as Map<String, dynamic>)['name'] ?? "Doctor";
+              }
+              if (!context.mounted) return;
+              Navigator.push(context, MaterialPageRoute(builder: (_) => DoctorPatientProfileView(referenceNumber: refNumber, doctorName: fetchedDocName)));
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _actionBtn({required String label, required Color color, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(color: color.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2)),
-          ],
+          boxShadow: [BoxShadow(color: color.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Center(
           child: Text(
             label,
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+            textAlign: TextAlign.center,
           ),
         ),
       ),
