@@ -16,28 +16,21 @@ class PatientProfileView extends StatelessWidget {
       create: (_) => PatientProfileViewModel(userEmail: userEmail),
       child: Consumer<PatientProfileViewModel>(
         builder: (context, vm, _) {
-          return DefaultTabController(
-            length: 2,
-            child: Scaffold(
-              appBar: AppBar(
-                title: const Text("My Profile"),
-                bottom: const TabBar(
-                  tabs: [
-                    Tab(icon: Icon(Icons.medication), text: "Prescriptions"),
-                    Tab(icon: Icon(Icons.assignment), text: "My Reports"),
-                  ],
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text("My Profile"),
+            ),
+            body: vm.loading
+                ? const Center(child: CircularProgressIndicator())
+                : vm.patient == null
+                ? const Center(child: Text("No Profile Data Found"))
+                : Column(
+              children: [
+                _buildProfileHeader(vm.patient!),
+                Expanded(
+                  child: _buildReportSection(context, vm),
                 ),
-              ),
-              body: vm.loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : vm.patient == null
-                  ? const Center(child: Text("No Profile Data Found"))
-                  : TabBarView(
-                children: [
-                  _buildPrescriptionTab(context, vm),
-                  _buildReportTab(context, vm),
-                ],
-              ),
+              ],
             ),
           );
         },
@@ -46,74 +39,11 @@ class PatientProfileView extends StatelessWidget {
   }
 
   /// =========================
-  /// 💊 PRESCRIPTION TAB (NEW)
+  /// 📄 REPORTS SECTION
   /// =========================
-  Widget _buildPrescriptionTab(BuildContext context, PatientProfileViewModel vm) {
-    return Column(
-      children: [
-        _buildProfileHeader(vm.patient!),
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text("Doctor's Prescriptions",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: vm.getPrescriptionsStream(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text("No prescriptions from doctor yet."));
-              }
-
-              final docs = snapshot.data!.docs;
-
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: docs.length,
-                itemBuilder: (context, index) {
-                  final data = docs[index].data() as Map<String, dynamic>;
-                  final bool isText = data['type'] == 'text';
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      leading: Icon(
-                        isText ? Icons.notes : Icons.image,
-                        color: isText ? Colors.green : Colors.orange,
-                      ),
-                      title: Text(
-                        isText ? (data['content'] ?? "No content") : (data['fileName'] ?? "Image Prescription"),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(isText ? "Text Note" : "Image File"),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: isText
-                          ? () => _showTextPrescriptionDialog(context, data['content'])
-                          : () => vm.openReport(data['fileUrl']),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// =========================
-  /// 📄 REPORTS TAB
-  /// =========================
-  Widget _buildReportTab(BuildContext context, PatientProfileViewModel vm) {
+  Widget _buildReportSection(BuildContext context, PatientProfileViewModel vm) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
         const Text("Medical Reports", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
@@ -132,7 +62,10 @@ class PatientProfileView extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Center(child: Text("No reports uploaded yet"));
+              return const Center(child: Padding(
+                padding: EdgeInsets.only(top: 20.0),
+                child: Text("No reports uploaded yet"),
+              ));
             }
 
             final docs = snapshot.data!.docs;
@@ -196,19 +129,6 @@ class PatientProfileView extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: Chip(label: Text(label, style: const TextStyle(fontSize: 12))),
-    );
-  }
-
-  void _showTextPrescriptionDialog(BuildContext context, String? content) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Prescription Note"),
-        content: Text(content ?? "No details provided"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))
-        ],
-      ),
     );
   }
 }

@@ -47,20 +47,6 @@ class PatientProfileViewModel extends ChangeNotifier {
   }
 
   /// =========================
-  /// STREAM PRESCRIPTIONS (NEW)
-  /// =========================
-  Stream<QuerySnapshot> getPrescriptionsStream() {
-    if (_patientId == null) return const Stream.empty();
-
-    return FirebaseFirestore.instance
-        .collection('patients')
-        .doc(_patientId)
-        .collection('prescriptions')
-        .orderBy('createdAt', descending: true)
-        .snapshots();
-  }
-
-  /// =========================
   /// STREAM REPORTS
   /// =========================
   Stream<QuerySnapshot> getReportsStream() {

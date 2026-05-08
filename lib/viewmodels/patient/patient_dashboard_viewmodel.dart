@@ -256,6 +256,11 @@ class PatientDashboardViewModel extends ChangeNotifier {
       gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
     ),
     PatientDashboardModel(
+      icon: Icons.medication,
+      label: "My Prescriptions",
+      gradient: const [Color(0xFF36D1DC), Color(0xFF5B86E5)],
+    ),
+    PatientDashboardModel(
       icon: Icons.warning_amber_rounded,
       label: "Emergency SOS",
       gradient: const [Color(0xFFe53935), Color(0xFFe35d5b)],

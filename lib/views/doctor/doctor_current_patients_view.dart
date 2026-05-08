@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 🟢 ADDED: Required for fetching current user
 
 import '../../viewmodels/doctor/doctor_current_patients_viewmodel.dart';
 import 'doctor_patient_profile_view.dart';
@@ -55,7 +56,7 @@ class DoctorCurrentPatientsView extends StatelessWidget {
                     final data = patients[index];
 
                     final reference = data['referenceNumber'] ?? '';
-                    final patientId = data['patientId'];
+                    // final patientId = data['patientId']; // Removed unused warning
 
                     return Card(
                       elevation: 3,
@@ -97,12 +98,32 @@ class DoctorCurrentPatientsView extends StatelessWidget {
                           color: Colors.grey,
                         ),
 
-                        onTap: () {
+                        // 🟢 UPDATED: Make this function async and fetch the doctor's name
+                        onTap: () async {
+                          String fetchedDoctorName = "Unknown Doctor";
+
+                          // Fetch current doctor's name from Firestore
+                          final currentUser = FirebaseAuth.instance.currentUser;
+                          if (currentUser != null) {
+                            final docSnap = await FirebaseFirestore.instance
+                                .collection('doctors')
+                                .doc(currentUser.uid)
+                                .get();
+
+                            if (docSnap.exists) {
+                              final docData = docSnap.data() as Map<String, dynamic>;
+                              fetchedDoctorName = docData['name'] ?? "Unknown Doctor";
+                            }
+                          }
+
+                          if (!context.mounted) return;
+
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => DoctorPatientProfileView(
                                 referenceNumber: reference,
+                                doctorName: fetchedDoctorName, // 🟢 PASSED HERE
                               ),
                             ),
                           );

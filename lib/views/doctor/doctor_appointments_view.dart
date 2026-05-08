@@ -196,14 +196,34 @@ class DoctorAppointmentsScreen extends StatelessWidget {
                                                           ? Colors.green
                                                           : Colors.blueAccent,
                                                     ),
-                                                    onPressed: () {
+                                                    // 🟢 UPDATED: Make this function async to fetch the doctor's name
+                                                    onPressed: () async {
+                                                      String fetchedDoctorName = "Unknown Doctor";
+
+                                                      // Fetch current doctor's name from Firestore
+                                                      final currentUser = FirebaseAuth.instance.currentUser;
+                                                      if (currentUser != null) {
+                                                        final docSnap = await FirebaseFirestore.instance
+                                                            .collection('doctors')
+                                                            .doc(currentUser.uid)
+                                                            .get();
+
+                                                        if (docSnap.exists) {
+                                                          final docData = docSnap.data() as Map<String, dynamic>;
+                                                          // Adjust 'name' if your DB uses a different field like 'fullName'
+                                                          fetchedDoctorName = docData['name'] ?? "Unknown Doctor";
+                                                        }
+                                                      }
+
+                                                      if (!context.mounted) return;
+
                                                       Navigator.push(
                                                         context,
                                                         MaterialPageRoute(
                                                           builder: (_) =>
                                                               DoctorPatientProfileView(
-                                                                referenceNumber:
-                                                                refNumber,
+                                                                referenceNumber: refNumber,
+                                                                doctorName: fetchedDoctorName, // 🟢 PASSED HERE
                                                               ),
                                                         ),
                                                       );

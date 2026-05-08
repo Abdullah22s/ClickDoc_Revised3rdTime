@@ -5,14 +5,20 @@ import '../../viewmodels/doctor/doctor_patient_profile_viewmodel.dart';
 
 class DoctorPatientProfileView extends StatelessWidget {
   final String referenceNumber;
+  final String doctorName; // 🟢 ADDED: Pass the doctor's name here
 
-  const DoctorPatientProfileView({super.key, required this.referenceNumber});
+  const DoctorPatientProfileView({
+    super.key,
+    required this.referenceNumber,
+    required this.doctorName, // 🟢 ADDED: Required in constructor
+  });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) {
-        final vm = DoctorPatientProfileViewModel();
+        // 🟢 UPDATED: Pass the doctorName to the ViewModel
+        final vm = DoctorPatientProfileViewModel(doctorName: doctorName);
         vm.fetchPatientByReferenceNumber(referenceNumber);
         return vm;
       },

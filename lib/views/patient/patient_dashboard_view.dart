@@ -6,6 +6,7 @@ import '../../views/patient/patient_profile_view.dart';
 import '../../views/patient/patient_physical_opd_view.dart';
 import '../../views/patient/patient_online_doctors_view.dart';
 import '../../views/patient/search_doctor_by_symptom_view.dart';
+import '../../views/patient/patient_prescriptions_view.dart'; // 💊 ADDED IMPORT
 
 class PatientDashboardScreen extends StatelessWidget {
   final String userName;
@@ -196,6 +197,19 @@ class PatientDashboardScreen extends StatelessWidget {
                                   MaterialPageRoute(
                                     builder: (_) =>
                                     const SearchDoctorBySymptomView(),
+                                  ),
+                                )),
+                            /// 💊 NEW: MY PRESCRIPTIONS BUTTON
+                            _gridItem(
+                                icon: Icons.medication,
+                                label: "My Prescriptions",
+                                color: Colors.indigo,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        PatientPrescriptionsView(
+                                            userEmail: userEmail),
                                   ),
                                 )),
                           ],

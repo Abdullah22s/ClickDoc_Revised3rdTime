@@ -9,6 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/patient/patient_model.dart';
 
 class DoctorPatientProfileViewModel extends ChangeNotifier {
+  // 🟢 1. ADD THIS: We need to receive the doctor's name when this ViewModel is created
+  final String doctorName;
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
@@ -16,6 +19,9 @@ class DoctorPatientProfileViewModel extends ChangeNotifier {
   bool isLoading = false;
   bool isUploading = false;
   String? _patientId;
+
+  // 🟢 2. ADD THIS: Constructor to require the doctor's name
+  DoctorPatientProfileViewModel({required this.doctorName});
 
   // =========================
   // FETCH PATIENT
@@ -90,6 +96,7 @@ class DoctorPatientProfileViewModel extends ChangeNotifier {
       'fileUrl': null,
       'fileName': null,
       'createdAt': FieldValue.serverTimestamp(),
+      'doctorName': doctorName, // 🟢 3. ADD THIS: Save doctor name for text prescriptions
     });
   }
 
@@ -155,6 +162,7 @@ class DoctorPatientProfileViewModel extends ChangeNotifier {
         'fileName': file.name,
         'content': null,
         'createdAt': FieldValue.serverTimestamp(),
+        'doctorName': doctorName, // 🟢 4. ADD THIS: Save doctor name for file prescriptions
       });
 
       debugPrint("✅ Upload successful: $downloadUrl");
