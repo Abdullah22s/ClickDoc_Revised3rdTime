@@ -78,17 +78,48 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
     bool smsSent = false;
 
     if (action == 'accept') {
-      // 1. Get the appointment data to grab the exact slot time
+      // 1. Get the appointment data
       final appointmentDoc = await docRef.get();
       final appointmentData = appointmentDoc.data() as Map<String, dynamic>? ?? {};
       final patientId = appointmentData['patientId'] ?? '';
       final String slotStart = appointmentData['start'] ?? '00:00';
       final String slotEnd = appointmentData['end'] ?? '00:00';
 
-      // 2. Update status and initialize the vitals flag for the Operator
+      // 2. Fetch the clinic details FIRST to get the date
+      final clinicDoc = await _firestore
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('online_clinics')
+          .doc(clinicId)
+          .get();
+
+      final clinicData = clinicDoc.data() ?? {};
+      final Timestamp? clinicDateTs = clinicData['startDateTime'] as Timestamp?;
+
+      // 3. Calculate exact startDateTime to save for the Operator
+      DateTime? exactStartDateTime;
+      if (clinicDateTs != null) {
+        try {
+          final date = clinicDateTs.toDate();
+          final rawTime = slotStart.toUpperCase().replaceAll('AM', '').replaceAll('PM', '').trim();
+          final parts = rawTime.split(':');
+          int hour = int.parse(parts[0]);
+          int minute = int.parse(parts[1]);
+
+          if (slotStart.toUpperCase().contains('PM') && hour != 12) hour += 12;
+          if (slotStart.toUpperCase().contains('AM') && hour == 12) hour = 0;
+
+          exactStartDateTime = DateTime(date.year, date.month, date.day, hour, minute);
+        } catch (e) {
+          exactStartDateTime = clinicDateTs.toDate();
+        }
+      }
+
+      // 4. Update status and save the exact startDateTime so Operator can filter it
       await docRef.update({
         'status': 'accepted',
         'vitalsEntered': false, // 🟢 Ensures operator can find this in their query
+        if (exactStartDateTime != null) 'startDateTime': Timestamp.fromDate(exactStartDateTime),
       });
 
       if (patientId.isNotEmpty) {
@@ -100,17 +131,7 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
           final name = patientData['name'] ?? 'Patient';
           final referenceNumber = patientData['referenceNumber'] ?? '';
 
-          // 3. Fetch the clinic details (to get the exact date/department)
-          final clinicDoc = await _firestore
-              .collection('doctors')
-              .doc(doctorId)
-              .collection('online_clinics')
-              .doc(clinicId)
-              .get();
-
-          final clinicData = clinicDoc.data() ?? {};
-
-          // 4. Add to history WITH the slot times and date so "Current Patients" tab works
+          // 5. Add to history WITH the slot times and date so "Current Patients" tab works
           await _firestore.collection('doctor_patient_history').add({
             'doctorId': doctorId,
             'patientId': patientId,

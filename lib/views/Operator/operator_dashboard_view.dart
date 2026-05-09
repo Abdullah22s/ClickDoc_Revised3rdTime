@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../viewmodels/operator/operator_dashboard_viewmodel.dart';
+import '../../viewmodels/Operator/operator_dashboard_viewmodel.dart';
 
 class OperatorDashboardScreen extends StatefulWidget {
   final String operatorEmail;
@@ -22,67 +22,47 @@ class _OperatorDashboardScreenState extends State<OperatorDashboardScreen> {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => OperatorDashboardViewModel(),
-      child: Consumer<OperatorDashboardViewModel>(
-        builder: (context, vm, _) {
-          return Scaffold(
-            backgroundColor: const Color(0xFFF8FAFC),
-            appBar: AppBar(
-              title: Text(
-                "Vitals Queue",
-                style: TextStyle(fontWeight: FontWeight.w800, color: slate900),
-              ),
-              backgroundColor: Colors.white,
-              elevation: 0,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.logout, color: Color(0xFFEF4444)),
-                  onPressed: () async {
-                    await FirebaseAuth.instance.signOut();
-                    if (context.mounted) {
-                      Navigator.of(context).pushReplacementNamed('/login');
-                    }
-                  },
-                )
-              ],
-            ),
-            body: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: vm.getEnrichedAppointments(),
-              builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator(color: primaryOrange));
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: Text(
+            "Vitals Queue",
+            style: TextStyle(fontWeight: FontWeight.w800, color: slate900),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Color(0xFFEF4444)),
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushReplacementNamed('/login');
                 }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text(
-                        "Error loading queue: ${snapshot.error}",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                final appointments = snapshot.data!;
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: appointments.length,
-                  itemBuilder: (context, index) {
-                    return _buildAppointmentCard(context, appointments[index], vm);
-                  },
-                );
               },
-            ),
-          );
-        },
+            )
+          ],
+        ),
+        body: Consumer<OperatorDashboardViewModel>(
+          builder: (context, vm, _) {
+            if (vm.isLoading) {
+              return Center(child: CircularProgressIndicator(color: primaryOrange));
+            }
+
+            if (vm.visibleAppointments.isEmpty) {
+              return _buildEmptyState();
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              physics: const BouncingScrollPhysics(),
+              itemCount: vm.visibleAppointments.length,
+              itemBuilder: (context, index) {
+                return _buildAppointmentCard(context, vm.visibleAppointments[index], vm);
+              },
+            );
+          },
+        ),
       ),
     );
   }
