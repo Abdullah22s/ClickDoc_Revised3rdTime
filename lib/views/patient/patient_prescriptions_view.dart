@@ -32,7 +32,6 @@ class PatientPrescriptionsView extends StatelessWidget {
     );
   }
 
-  /// Builds the grouped list of prescriptions from Firestore
   Widget _buildGroupedPrescriptionsList(BuildContext context, PatientPrescriptionsViewModel vm) {
     return StreamBuilder<Map<String, List<QueryDocumentSnapshot>>>(
       stream: vm.getGroupedPrescriptionsStream(),
@@ -41,83 +40,87 @@ class PatientPrescriptionsView extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
-            child: Text(
-              "No prescriptions from any doctor yet.",
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          );
+          return const Center(child: Text("No prescriptions yet.", style: TextStyle(color: Colors.grey)));
         }
 
         final groupedDocs = snapshot.data!;
-        final doctorNames = groupedDocs.keys.toList();
+        final doctorIds = groupedDocs.keys.toList();
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: doctorNames.length,
+          itemCount: doctorIds.length,
           itemBuilder: (context, index) {
-            final doctorName = doctorNames[index];
-            final doctorPrescriptions = groupedDocs[doctorName]!;
+            final doctorId = doctorIds[index];
+            final doctorPrescriptions = groupedDocs[doctorId]!;
 
-            return Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: ExpansionTile(
-                initiallyExpanded: index == 0, // Expand the most recent doctor by default
-                leading: const CircleAvatar(
-                  backgroundColor: Colors.blueAccent,
-                  child: Icon(Icons.person, color: Colors.white),
-                ),
-                title: Text(
-                  "Dr. $doctorName",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                subtitle: Text("${doctorPrescriptions.length} Prescription(s)"),
-                children: doctorPrescriptions.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final bool isText = data['type'] == 'text';
+            // 🟢 Use FutureBuilder to fetch and show Doctor Name
+            return FutureBuilder<String>(
+              future: vm.getDoctorName(doctorId),
+              builder: (context, nameSnapshot) {
+                final doctorName = nameSnapshot.data ?? "Loading...";
 
-                  // Helper to format date if timestamp exists
-                  String dateString = "Unknown Date";
-                  if (data['createdAt'] != null) {
-                    DateTime dt = (data['createdAt'] as Timestamp).toDate();
-                    dateString = "${dt.day}/${dt.month}/${dt.year}";
-                  }
+                return Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ExpansionTile(
+                    initiallyExpanded: index == 0,
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.blueAccent,
+                      child: Icon(Icons.person, color: Colors.white),
+                    ),
+                    title: Text("Dr. $doctorName", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text("${doctorPrescriptions.length} Prescription(s)"),
+                    children: doctorPrescriptions.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: Card(
-                      elevation: 0,
-                      color: Colors.grey.shade100,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isText ? Colors.green.shade100 : Colors.orange.shade100,
-                          child: Icon(
-                            isText ? Icons.notes : Icons.image,
-                            color: isText ? Colors.green : Colors.orange,
+                      // 🟢 MAPPING FIX: Use your Firestore field names
+                      final String? textRx = data['prescriptionText'];
+                      final String? imageRx = data['prescriptionImageUrl'];
+                      final bool isImage = imageRx != null && imageRx.isNotEmpty;
+
+                      String dateString = "Unknown Date";
+                      if (data['createdAt'] != null) {
+                        DateTime dt = (data['createdAt'] as Timestamp).toDate();
+                        dateString = "${dt.day}/${dt.month}/${dt.year}";
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Card(
+                          elevation: 0,
+                          color: Colors.grey.shade100,
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: !isImage ? Colors.green.shade100 : Colors.orange.shade100,
+                              child: Icon(
+                                !isImage ? Icons.notes : Icons.image,
+                                color: !isImage ? Colors.green : Colors.orange,
+                              ),
+                            ),
+                            title: Text(
+                              !isImage ? (textRx ?? "No content") : "Image Prescription",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text("${!isImage ? "Text Note" : "Image File"} • $dateString"),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              if (isImage) {
+                                // 🟢 ERROR FIX: Open using correct field name
+                                vm.openFile(imageRx!);
+                              } else {
+                                _showTextPrescriptionDialog(context, textRx, dateString);
+                              }
+                            },
                           ),
                         ),
-                        title: Text(
-                          isText ? (data['content'] ?? "No content") : (data['fileName'] ?? "Image Prescription"),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          "${isText ? "Text Note" : "Image File"} • $dateString",
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                        onTap: isText
-                            ? () => _showTextPrescriptionDialog(context, data['content'], dateString)
-                            : () => vm.openFile(data['fileUrl']),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
             );
           },
         );
@@ -125,42 +128,22 @@ class PatientPrescriptionsView extends StatelessWidget {
     );
   }
 
-  /// Shows text-based prescriptions in a popup dialog
   void _showTextPrescriptionDialog(BuildContext context, String? content, String dateStr) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Row(
-          children: const [
-            Icon(Icons.medication, color: Colors.blue),
-            SizedBox(width: 8),
-            Text("Prescription Note"),
+        title: const Text("Prescription Note"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Date: $dateStr", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+            const SizedBox(height: 12),
+            Text(content ?? "No details provided"),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Date: $dateStr",
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                content ?? "No details provided",
-                style: const TextStyle(fontSize: 16, height: 1.5),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close", style: TextStyle(fontSize: 16)),
-          )
-        ],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))],
       ),
     );
   }

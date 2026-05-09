@@ -8,6 +8,9 @@ class PatientPrescriptionsViewModel extends ChangeNotifier {
   bool isLoading = true;
   String? _patientId;
 
+  // 🟢 NEW: Cache for doctor names to avoid "Unknown Doctor"
+  final Map<String, String> _doctorNameCache = {};
+
   PatientPrescriptionsViewModel({required this.userEmail}) {
     _init();
   }
@@ -16,7 +19,6 @@ class PatientPrescriptionsViewModel extends ChangeNotifier {
     await _fetchPatientId();
   }
 
-  /// Finds the patient document ID based on the user's email
   Future<void> _fetchPatientId() async {
     try {
       final query = await FirebaseFirestore.instance
@@ -36,8 +38,20 @@ class PatientPrescriptionsViewModel extends ChangeNotifier {
     }
   }
 
-  /// Returns a stream of grouped prescriptions
-  /// Key: Doctor's Name, Value: List of their prescriptions sorted by date
+  // 🟢 NEW: Method to fetch a doctor's name by ID
+  Future<String> getDoctorName(String doctorId) async {
+    if (_doctorNameCache.containsKey(doctorId)) return _doctorNameCache[doctorId]!;
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('doctors').doc(doctorId).get();
+      final name = doc.data()?['name'] ?? 'Unknown Doctor';
+      _doctorNameCache[doctorId] = name;
+      return name;
+    } catch (e) {
+      return 'Unknown Doctor';
+    }
+  }
+
   Stream<Map<String, List<QueryDocumentSnapshot>>> getGroupedPrescriptionsStream() {
     if (_patientId == null) return const Stream.empty();
 
@@ -48,27 +62,22 @@ class PatientPrescriptionsViewModel extends ChangeNotifier {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-
-      // Grouping the documents by doctorName
       Map<String, List<QueryDocumentSnapshot>> groupedData = {};
 
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
+        // 🟢 Group by doctorId instead of a missing doctorName field
+        final docId = data['doctorId'] ?? 'Unknown';
 
-        // Ensure you are saving 'doctorName' when the doctor creates a prescription
-        final doctorName = data['doctorName'] ?? 'Unknown Doctor';
-
-        if (!groupedData.containsKey(doctorName)) {
-          groupedData[doctorName] = [];
+        if (!groupedData.containsKey(docId)) {
+          groupedData[docId] = [];
         }
-        groupedData[doctorName]!.add(doc);
+        groupedData[docId]!.add(doc);
       }
-
       return groupedData;
     });
   }
 
-  /// Opens image/pdf prescriptions using the device's native browser/viewer
   Future<void> openFile(String url) async {
     try {
       final uri = Uri.parse(url);
