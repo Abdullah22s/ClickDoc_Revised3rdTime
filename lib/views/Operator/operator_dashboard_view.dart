@@ -2,168 +2,150 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; // Add this to your pubspec.yaml for date formatting
 import '../../viewmodels/Operator/operator_dashboard_viewmodel.dart';
 
-class OperatorDashboardScreen extends StatefulWidget {
+class OperatorDashboardScreen extends StatelessWidget {
   final String operatorEmail;
-
-  const OperatorDashboardScreen({super.key, required this.operatorEmail});
-
-  @override
-  State<OperatorDashboardScreen> createState() => _OperatorDashboardScreenState();
-}
-
-class _OperatorDashboardScreenState extends State<OperatorDashboardScreen> {
-  // Orange Theme for Operator
   final Color primaryOrange = const Color(0xFFE65100);
   final Color slate900 = const Color(0xFF0F172A);
+
+  const OperatorDashboardScreen({super.key, required this.operatorEmail});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => OperatorDashboardViewModel(),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          title: Text(
-            "Vitals Queue",
-            style: TextStyle(fontWeight: FontWeight.w800, color: slate900),
-          ),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout, color: Color(0xFFEF4444)),
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            title: Text("Operator Dashboard", style: TextStyle(fontWeight: FontWeight.w800, color: slate900)),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            bottom: TabBar(
+              labelColor: primaryOrange,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: primaryOrange,
+              tabs: const [
+                Tab(text: "Current Queue"),
+                Tab(text: "Past Patients"),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout, color: Color(0xFFEF4444)),
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
                   Navigator.of(context).pushReplacementNamed('/login');
-                }
-              },
-            )
-          ],
-        ),
-        body: Consumer<OperatorDashboardViewModel>(
-          builder: (context, vm, _) {
-            if (vm.isLoading) {
-              return Center(child: CircularProgressIndicator(color: primaryOrange));
-            }
+                },
+              )
+            ],
+          ),
+          body: Consumer<OperatorDashboardViewModel>(
+            builder: (context, vm, _) {
+              if (vm.isLoading) return const Center(child: CircularProgressIndicator());
 
-            if (vm.visibleAppointments.isEmpty) {
-              return _buildEmptyState();
-            }
+              return TabBarView(
+                children: [
+                  // Tab 1: Current Queue
+                  _buildList(context, vm.currentAppointments, vm, isPast: false),
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              physics: const BouncingScrollPhysics(),
-              itemCount: vm.visibleAppointments.length,
-              itemBuilder: (context, index) {
-                return _buildAppointmentCard(context, vm.visibleAppointments[index], vm);
-              },
-            );
-          },
+                  // Tab 2: Past Patients (with Date Filter)
+                  Column(
+                    children: [
+                      _buildDateHeader(context, vm),
+                      Expanded(child: _buildList(context, vm.pastAppointments, vm, isPast: true)),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildDateHeader(BuildContext context, OperatorDashboardViewModel vm) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.white,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(Icons.monitor_heart_outlined, size: 80, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          const Text(
-            "Queue is empty",
-            style: TextStyle(color: Color(0xFF64748B), fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            "Records for: ${DateFormat('dd MMM, yyyy').format(vm.selectedDate)}",
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569)),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              "Patients appear here 30 mins before their scheduled start time.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-            ),
-          ),
+          TextButton.icon(
+            onPressed: () async {
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: vm.selectedDate,
+                firstDate: DateTime(2024),
+                lastDate: DateTime.now(),
+              );
+              if (picked != null) vm.updateSelectedDate(picked);
+            },
+            icon: Icon(Icons.calendar_month, size: 18, color: primaryOrange),
+            label: Text("Change Date", style: TextStyle(color: primaryOrange)),
+          )
         ],
       ),
     );
   }
 
-  Widget _buildAppointmentCard(BuildContext context, Map<String, dynamic> app, OperatorDashboardViewModel vm) {
-    // ✅ Logic to handle nested time strings from slots if top-level 'start' is missing
-    final String timeDisplay = app['start'] ??
-        (app['slots'] != null && (app['slots'] as List).isNotEmpty
-            ? app['slots'][0]['start']
-            : '--:--');
+  Widget _buildList(BuildContext context, List<Map<String, dynamic>> list, OperatorDashboardViewModel vm, {required bool isPast}) {
+    if (list.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(isPast ? Icons.history : Icons.monitor_heart_outlined, size: 60, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text(isPast ? "No records found for this date" : "Queue is empty",
+                style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: list.length,
+      itemBuilder: (context, index) => _buildAppointmentCard(context, list[index], vm, isPast),
+    );
+  }
+
+  Widget _buildAppointmentCard(BuildContext context, Map<String, dynamic> app, OperatorDashboardViewModel vm, bool isPast) {
+    final String timeDisplay = app['start'] ?? '--:--';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: primaryOrange.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: isPast ? Border.all(color: Colors.green.withOpacity(0.2)) : null,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: primaryOrange.withOpacity(0.1),
-                child: Icon(Icons.person, color: primaryOrange),
-              ),
-              title: Text(
-                app['patientName'] ?? 'Unknown Patient',
-                style: TextStyle(fontWeight: FontWeight.w800, color: slate900, fontSize: 17),
-              ),
-              subtitle: Text(
-                "Dr. ${app['doctorName']}\nSlot: $timeDisplay",
-                style: const TextStyle(height: 1.5),
-              ),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  timeDisplay,
-                  style: TextStyle(fontWeight: FontWeight.w700, color: slate900),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryOrange,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                onPressed: () => _showVitalsBottomSheet(
-                    context,
-                    vm,
-                    app['appointmentRef'] as DocumentReference
-                ),
-                child: const Text(
-                  "Collect Vitals",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-              ),
-            )
-          ],
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(12),
+        title: Text(app['patientName'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text("Dr. ${app['doctorName']}\nSlot: $timeDisplay"),
+        trailing: isPast
+            ? const Icon(Icons.check_circle, color: Colors.green)
+            : ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: primaryOrange),
+          onPressed: () => _showVitalsBottomSheet(context, vm, app['appointmentRef']),
+          child: const Text("Collect", style: TextStyle(color: Colors.white)),
         ),
       ),
     );
   }
+
+  // ... (Keep _showVitalsBottomSheet and _vitalTextField exactly as they were before) ...
 
   void _showVitalsBottomSheet(BuildContext context, OperatorDashboardViewModel vm, DocumentReference appointmentRef) {
     final bpController = TextEditingController();
