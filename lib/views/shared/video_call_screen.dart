@@ -29,6 +29,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   int _seconds = 0;
   bool _connected = false;
   bool _localMediaStarted = false;
+  bool _isEnding = false;
 
   @override
   void initState() {
@@ -55,6 +56,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       debugPrint("==================================");
       debugPrint("CALL ROLE: ${widget.isDoctor ? 'DOCTOR' : 'PATIENT'}");
       debugPrint("ROOM PATH: ${widget.roomPath}");
+      debugPrint("DURATION MINUTES: ${widget.durationMinutes}");
       debugPrint("==================================");
 
       if (widget.isDoctor) {
@@ -108,11 +110,21 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     });
   }
 
-  void _endSession() {
+  Future<void> _endSession() async {
+    if (_isEnding) return;
+    _isEnding = true;
+
     _timer?.cancel();
-    _service.hangUp(widget.roomPath);
-    if (widget.isDoctor) widget.onCallEnd();
-    if (mounted) Navigator.pop(context);
+
+    if (mounted) {
+      Navigator.pop(context, widget.isDoctor);
+    }
+
+    await _service.hangUp(widget.roomPath);
+
+    if (widget.isDoctor) {
+      widget.onCallEnd();
+    }
   }
 
   @override

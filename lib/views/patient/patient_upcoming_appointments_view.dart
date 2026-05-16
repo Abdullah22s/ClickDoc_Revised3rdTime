@@ -93,17 +93,43 @@ class PatientUpcomingAppointmentsView extends StatelessWidget {
               const SizedBox(height: 16),
               // ✅ UPDATED: JOIN VIDEO CALL
               _actionButton(
-                  label: "Join Session",
-                  color: const Color(0xFF10B981),
-                  icon: Icons.play_circle_fill,
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => VideoCallScreen(
-                      isDoctor: false,
-                      roomPath: (app['reference'] as DocumentReference).path,
-                      durationMinutes: 15, // Default, logic on doctor's side controls end
-                      onCallEnd: () {},
-                    )));
+                label: "Join Session",
+                color: const Color(0xFF10B981),
+                icon: Icons.play_circle_fill,
+                onTap: () async {
+                  final appointmentRef = app['reference'] as DocumentReference;
+
+                  int durationMinutes = 15;
+
+                  try {
+                    final clinicRef = appointmentRef.parent.parent;
+
+                    if (clinicRef != null) {
+                      final clinicSnapshot = await clinicRef.get();
+                      final clinicData = clinicSnapshot.data() as Map<String, dynamic>?;
+
+                      if (clinicData != null && clinicData['appointmentDuration'] != null) {
+                        durationMinutes = clinicData['appointmentDuration'];
+                      }
+                    }
+                  } catch (e) {
+                    debugPrint("Error fetching appointment duration: $e");
                   }
+
+                  if (!context.mounted) return;
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => VideoCallScreen(
+                        isDoctor: false,
+                        roomPath: appointmentRef.path,
+                        durationMinutes: durationMinutes,
+                        onCallEnd: () {},
+                      ),
+                    ),
+                  );
+                },
               ),
             ] else if (vitalsEntered) ...[
               Row(
