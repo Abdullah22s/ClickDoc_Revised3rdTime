@@ -174,7 +174,7 @@ class DoctorPhysicalAppointmentsScreen extends StatelessWidget {
               Expanded(child: _actionBtn(label: "Start Appt", color: const Color(0xFF10B981), onTap: () => viewModel.startAppointment(clinic.id, requestDoc.id))),
             ],
             if (status == 'in_progress') ...[
-              Expanded(child: _actionBtn(label: "End Appointment", color: const Color(0xFFEF4444), onTap: () => {})), // Add your end appointment logic dialog
+              Expanded(child: _actionBtn(label: "End Appointment", color: const Color(0xFFEF4444), onTap: () => _showEndAppointmentOptions(context, viewModel, clinic.id, requestDoc.id, patientId))), // Add your end appointment logic dialog
             ],
             if (patientId.isNotEmpty) ...[
               const SizedBox(width: 8),
@@ -184,6 +184,98 @@ class DoctorPhysicalAppointmentsScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+
+  void _showEndAppointmentOptions(BuildContext context, DoctorPhysicalAppointmentsViewModel viewModel, String clinicId, String appointmentId, String patientId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("End Appointment", style: TextStyle(fontWeight: FontWeight.w800)),
+        content: const Text("Would you like to add a prescription before ending?"),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await viewModel.endAppointment(clinicId: clinicId, appointmentId: appointmentId, patientId: patientId);
+            },
+            child: const Text("Skip", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showManualPrescriptionDialog(context, viewModel, clinicId, appointmentId, patientId);
+            },
+            child: const Text("Enter Text", style: TextStyle(color: Color(0xFF3B82F6))),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handlePrescriptionUpload(context, viewModel, clinicId, appointmentId, patientId);
+            },
+            child: const Text("Upload", style: TextStyle(color: Color(0xFF10B981))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManualPrescriptionDialog(BuildContext context, DoctorPhysicalAppointmentsViewModel viewModel, String clinicId, String appointmentId, String patientId) {
+    final TextEditingController prescriptionController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Write Prescription"),
+        content: TextField(
+          controller: prescriptionController,
+          maxLines: 5,
+          decoration: InputDecoration(hintText: "Rx...", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: primaryOrange),
+            onPressed: () async {
+              final text = prescriptionController.text.trim();
+              if (text.isNotEmpty) {
+                await viewModel.endAppointment(clinicId: clinicId, appointmentId: appointmentId, patientId: patientId, prescriptionText: text);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text("Save & End", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handlePrescriptionUpload(BuildContext context, DoctorPhysicalAppointmentsViewModel viewModel, String clinicId, String appointmentId, String patientId) async {
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? pickedImage = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+      if (pickedImage != null) {
+        File imageFile = File(pickedImage.path);
+        if (context.mounted) {
+          showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFFF97316))));
+        }
+
+        try {
+          await viewModel.endAppointment(clinicId: clinicId, appointmentId: appointmentId, patientId: patientId, prescriptionImageFile: imageFile);
+          if (context.mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Prescription uploaded."), backgroundColor: Color(0xFF10B981)));
+          }
+        } finally {
+          if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: const Color(0xFFEF4444)));
+      }
+    }
   }
 
   // Action Button, Patient Profile Button, Vitals Dialog helpers are identical to your Online View code
