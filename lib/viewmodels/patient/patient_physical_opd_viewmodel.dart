@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../models/patient/patient_physical_opd_model.dart';
+import '../../models/patient/patient_physical_opd_model.dart'; // Adjust import if needed
 
 class PatientPhysicalOpdViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Map<String, DoctorPhysicalOpdModel> doctorCache = {};
   Map<String, bool> expandedDoctor = {};
+  String nameFilter = '';
+  String departmentFilter = '';
 
   final List<String> daysOrder = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
@@ -18,45 +19,62 @@ class PatientPhysicalOpdViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Fetch doctor info and their OPDs
-  Future<DoctorPhysicalOpdModel?> getDoctorInfo(String doctorUid) async {
-    if (doctorCache.containsKey(doctorUid)) return doctorCache[doctorUid]!;
+  /// Set filters from filter sheet
+  void setFilters({String? name, String? department}) {
+    nameFilter = name?.trim() ?? '';
+    departmentFilter = department?.trim() ?? '';
+    notifyListeners();
+  }
 
-    final doc = await _firestore.collection('doctors').doc(doctorUid).get();
-    if (!doc.exists) return null;
+  /// Clear filters
+  void clearFilters() {
+    nameFilter = '';
+    departmentFilter = '';
+    notifyListeners();
+  }
 
-    final data = doc.data()!;
-    final name = data['name'] ?? 'Unknown';
-    final qualifications = List<String>.from(data['qualifications'] ?? []);
+  /// Stream of all doctors
+  Stream<QuerySnapshot> get doctorsStream =>
+      _firestore.collection('doctors').snapshots();
 
-    final opdSnapshot = await _firestore
+  /// Fetch all physical opds for a doctor
+  /// Fetch all physical opds for a doctor
+  Future<List<PhysicalOpdModel>> getDoctorOpds(
+      QueryDocumentSnapshot doctorDoc) async {
+    final doctorId = doctorDoc.id;
+
+    final opdsSnap = await _firestore
         .collection('doctors')
-        .doc(doctorUid)
+        .doc(doctorId)
         .collection('physical_opds')
         .get();
 
-    if (opdSnapshot.docs.isEmpty) return null; // skip doctor if no OPDs
+    if (opdsSnap.docs.isEmpty) return [];
 
-    final opds = opdSnapshot.docs
-        .map((d) => PhysicalOpdModel.fromMap(d.data()))
-        .toList();
+    final opds = opdsSnap.docs.map((opdDoc) {
+      // ✅ FIXED: Passing both opdDoc.id and the data map
+      return PhysicalOpdModel.fromMap(opdDoc.id, opdDoc.data() as Map<String, dynamic>);
+    }).toList();
 
+    // Sort the OPDs by day of the week
     opds.sort((a, b) => daysOrder.indexOf(a.day).compareTo(daysOrder.indexOf(b.day)));
 
-    final doctor = DoctorPhysicalOpdModel.fromMap(doctorUid, name, qualifications, opds);
-    doctorCache[doctorUid] = doctor;
-    return doctor;
+    return opds;
   }
 
-  /// Stream all doctors with their OPDs
-  Stream<List<DoctorPhysicalOpdModel>> get doctorOpdStream async* {
-    await for (final snapshot in _firestore.collection('doctors').snapshots()) {
-      final List<DoctorPhysicalOpdModel> doctors = [];
-      for (var doc in snapshot.docs) {
-        final doctor = await getDoctorInfo(doc.id);
-        if (doctor != null) doctors.add(doctor);
-      }
-      yield doctors;
-    }
+  /// Search filter (name + department)
+  bool matchesSearch(
+      String doctorName, List<PhysicalOpdModel> opds) {
+    final nameQuery = nameFilter.toLowerCase();
+    final deptQuery = departmentFilter.toLowerCase();
+
+    final nameMatch =
+    nameQuery.isEmpty ? true : doctorName.toLowerCase().contains(nameQuery);
+
+    final deptMatch = deptQuery.isEmpty
+        ? true
+        : opds.any((o) => o.department.toLowerCase().contains(deptQuery));
+
+    return nameMatch && deptMatch;
   }
 }

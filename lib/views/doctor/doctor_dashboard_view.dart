@@ -3,7 +3,8 @@ import '../../viewmodels/doctor/doctor_dashboard_viewmodel.dart';
 import 'doctor_profile_view.dart';
 import 'doctor_physical_opd_view.dart';
 import 'doctor_online_clinic_view.dart';
-import 'doctor_appointments_view.dart';
+import 'doctor_appointments_view.dart'; // Online appointments
+import 'doctor_appointments_physical_view.dart'; // Physical requests
 import 'doctor_current_patients_view.dart';
 
 class DoctorDashboardScreen extends StatelessWidget {
@@ -13,13 +14,12 @@ class DoctorDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 Dynamically filter out 'Medical Info'
     final dashboardItems = viewModel.dashboardItems
         .where((item) => !item.label.toLowerCase().contains('medical info'))
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Warmer, softer background
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -35,7 +35,7 @@ class DoctorDashboardScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1E293B), // Slate 800
+                    color: Color(0xFF1E293B),
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -50,7 +50,6 @@ class DoctorDashboardScreen extends StatelessWidget {
     );
   }
 
-  /// 🩺 Friendly profile header (Updated to handle logout at the UI level)
   Widget _buildModernHeader(BuildContext context) {
     return Row(
       children: [
@@ -109,26 +108,17 @@ class DoctorDashboardScreen extends StatelessWidget {
           ),
           child: IconButton(
             icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 22),
-            tooltip: 'Logout',
-            onPressed: () {
-              // 🔥 FIXED: Handled directly in the view instead of calling the ViewModel
-              // Add your authentication sign-out logic here if needed (e.g., FirebaseAuth.instance.signOut())
-
-              // This clears the navigation stack and returns to your login/auth screen
-              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-            },
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false),
           ),
         ),
       ],
     );
   }
 
-  /// 📊 Redesigned Friendly Grid
   Widget _buildModernGrid(BuildContext context, List<dynamic> items) {
     return LayoutBuilder(
       builder: (context, constraints) {
         int crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
-
         return GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
@@ -139,16 +129,12 @@ class DoctorDashboardScreen extends StatelessWidget {
             mainAxisSpacing: 16,
             childAspectRatio: 0.9,
           ),
-          itemBuilder: (context, index) {
-            final item = items[index];
-            return _buildPremiumCard(context, item);
-          },
+          itemBuilder: (context, index) => _buildPremiumCard(context, items[index]),
         );
       },
     );
   }
 
-  /// Extracted Card Widget with Dynamic Colored Glows
   Widget _buildPremiumCard(BuildContext context, dynamic item) {
     final theme = _getThemeFor(item.label);
 
@@ -177,18 +163,14 @@ class DoctorDashboardScreen extends StatelessWidget {
                 color: theme.bgColor,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(
-                item.icon,
-                size: 28,
-                color: theme.primaryColor,
-              ),
+              child: Icon(item.icon, size: 28, color: theme.primaryColor),
             ),
             const Spacer(),
             Text(
               item.label,
               style: const TextStyle(
                 color: Color(0xFF1E293B),
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.3,
               ),
@@ -198,7 +180,7 @@ class DoctorDashboardScreen extends StatelessWidget {
               _getSubtitleFor(item.label),
               style: const TextStyle(
                 color: Color(0xFF64748B),
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -208,106 +190,82 @@ class DoctorDashboardScreen extends StatelessWidget {
     );
   }
 
-  /// Helper to assign distinct, friendly colors and glowing shadows to each tile
   _CardTheme _getThemeFor(String label) {
     switch (label) {
       case 'Profile':
         return _CardTheme(
-          primaryColor: const Color(0xFF3B82F6), // Blue
+          primaryColor: const Color(0xFF3B82F6),
           bgColor: const Color(0xFFEFF6FF),
-          shadowColor: const Color(0xFF3B82F6).withOpacity(0.2),
+          shadowColor: const Color(0xFF3B82F6).withOpacity(0.1),
         );
-      case 'Appointments':
+      case 'Online Appointments':
         return _CardTheme(
-          primaryColor: const Color(0xFFF97316), // Orange
+          primaryColor: const Color(0xFFF97316),
           bgColor: const Color(0xFFFFF7ED),
-          shadowColor: const Color(0xFFF97316).withOpacity(0.2),
+          shadowColor: const Color(0xFFF97316).withOpacity(0.15),
+        );
+      case 'Physical Requests':
+        return _CardTheme(
+          primaryColor: const Color(0xFF14B8A6),
+          bgColor: const Color(0xFFF0FDFA),
+          shadowColor: const Color(0xFF14B8A6).withOpacity(0.15),
         );
       case 'Physical OPD':
         return _CardTheme(
-          primaryColor: const Color(0xFF14B8A6), // Teal
-          bgColor: const Color(0xFFF0FDFA),
-          shadowColor: const Color(0xFF14B8A6).withOpacity(0.2),
+          primaryColor: const Color(0xFF0EA5E9),
+          bgColor: const Color(0xFFF0F9FF),
+          shadowColor: const Color(0xFF0EA5E9).withOpacity(0.1),
         );
       case 'Online Clinic':
         return _CardTheme(
-          primaryColor: const Color(0xFF10B981), // Emerald
+          primaryColor: const Color(0xFF10B981),
           bgColor: const Color(0xFFECFDF5),
-          shadowColor: const Color(0xFF10B981).withOpacity(0.2),
+          shadowColor: const Color(0xFF10B981).withOpacity(0.1),
         );
       case 'Current Patients':
         return _CardTheme(
-          primaryColor: const Color(0xFF8B5CF6), // Purple
+          primaryColor: const Color(0xFF8B5CF6),
           bgColor: const Color(0xFFF5F3FF),
-          shadowColor: const Color(0xFF8B5CF6).withOpacity(0.2),
+          shadowColor: const Color(0xFF8B5CF6).withOpacity(0.1),
         );
       default:
         return _CardTheme(
-          primaryColor: const Color(0xFF3B82F6),
-          bgColor: const Color(0xFFEFF6FF),
-          shadowColor: const Color(0xFF3B82F6).withOpacity(0.2),
+          primaryColor: const Color(0xFF64748B),
+          bgColor: const Color(0xFFF1F5F9),
+          shadowColor: Colors.black.withOpacity(0.05),
         );
     }
   }
 
   String _getSubtitleFor(String label) {
     switch (label) {
-      case 'Profile':
-        return 'Manage account';
-      case 'Appointments':
-        return 'View schedule';
-      case 'Physical OPD':
-        return 'Clinic visits';
-      case 'Online Clinic':
-        return 'Video consults';
-      case 'Current Patients':
-        return 'Active cases';
-      default:
-        return 'Quick access';
+      case 'Profile': return 'Manage account';
+      case 'Online Appointments': return 'Video consults';
+      case 'Physical Requests': return 'Clinic requests';
+      case 'Physical OPD': return 'Visit setup';
+      case 'Online Clinic': return 'Session setup';
+      case 'Current Patients': return 'Active cases';
+      default: return 'Quick access';
     }
   }
 
   void _navigate(BuildContext context, String label) {
-    if (label == 'Profile') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DoctorProfileScreen(userEmail: viewModel.userEmail),
-        ),
-      );
-    } else if (label == 'Appointments') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => DoctorAppointmentsScreen()),
-      );
-    } else if (label == 'Physical OPD') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => DoctorPhysicalOpdScreen()),
-      );
-    } else if (label == 'Online Clinic') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => DoctorOnlineClinicScreen()),
-      );
-    } else if (label == 'Current Patients') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const DoctorCurrentPatientsView()),
-      );
+    final Map<String, Widget> routes = {
+      'Profile': DoctorProfileScreen(userEmail: viewModel.userEmail),
+      'Online Appointments': DoctorAppointmentsScreen(),
+      'Physical Requests': const DoctorPhysicalAppointmentsScreen(),
+      'Physical OPD': const DoctorPhysicalOpdView(),
+      'Online Clinic': const DoctorOnlineClinicScreen(),
+      'Current Patients': const DoctorCurrentPatientsView(),
+    };
+
+    if (routes.containsKey(label)) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => routes[label]!));
     }
   }
 }
 
-/// Simple model for card coloring
 class _CardTheme {
-  final Color primaryColor;
-  final Color bgColor;
-  final Color shadowColor;
-
-  _CardTheme({
-    required this.primaryColor,
-    required this.bgColor,
-    required this.shadowColor,
-  });
+  final Color primaryColor, bgColor, shadowColor;
+  _CardTheme({required this.primaryColor, required this.bgColor, required this.shadowColor});
 }

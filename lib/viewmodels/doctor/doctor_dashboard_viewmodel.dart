@@ -14,11 +14,10 @@ class DoctorDashboardViewModel extends ChangeNotifier {
 
   List<DoctorDashboardModel> get dashboardItems => [
     DoctorDashboardModel(icon: Icons.person, label: 'Profile'),
-    DoctorDashboardModel(icon: Icons.calendar_today, label: 'Appointments'),
-    DoctorDashboardModel(icon: Icons.local_hospital, label: 'Physical OPD'),
-    DoctorDashboardModel(icon: Icons.medical_services, label: 'Online Clinic'),
-
-    /// ✅ NEW (ONLY ADDITION — nothing else changed)
-    DoctorDashboardModel(icon: Icons.people, label: 'Current Patients'),
+    DoctorDashboardModel(icon: Icons.videocam_rounded, label: 'Online Appointments'),
+    DoctorDashboardModel(icon: Icons.assignment_ind_rounded, label: 'Physical Requests'),
+    DoctorDashboardModel(icon: Icons.local_hospital_rounded, label: 'Physical OPD'),
+    DoctorDashboardModel(icon: Icons.medical_services_rounded, label: 'Online Clinic'),
+    DoctorDashboardModel(icon: Icons.people_alt_rounded, label: 'Current Patients'),
   ];
 }

@@ -168,7 +168,6 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
             .child(patientId)
             .child(fileName);
 
-        // Upload with a 30-second timeout to prevent silent hangs
         final uploadTask = await storageRef.putFile(
           prescriptionImageFile,
           SettableMetadata(contentType: 'image/jpeg'),
@@ -193,7 +192,6 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
         debugPrint("✅ Firestore record created.");
       }
 
-      // Deleting the slot ONLY after the data is secured
       debugPrint("Deleting appointment slot...");
       await _firestore
           .collection('doctors')

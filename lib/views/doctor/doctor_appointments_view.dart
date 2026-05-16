@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../viewmodels/doctor/doctor_appointments_viewmodel.dart';
 import 'doctor_patient_profile_view.dart';
+// ✅ NEW IMPORT
+import '../shared/video_call_screen.dart';
 
 class DoctorAppointmentsScreen extends StatelessWidget {
   final Color primaryOrange = const Color(0xFFF97316);
@@ -164,7 +166,18 @@ class DoctorAppointmentsScreen extends StatelessWidget {
             if (status == 'accepted' && vitalsEntered) ...[
               Expanded(child: _actionBtn(label: "Check Vitals", color: const Color(0xFF3B82F6), onTap: () => _showVitalsDialog(context, data['vitals']))),
               const SizedBox(width: 8),
-              Expanded(child: _actionBtn(label: "Start Appt", color: const Color(0xFF10B981), onTap: () => viewModel.startAppointment(clinic.id, requestDoc.id))),
+              // ✅ UPDATED: Call startAppointment and Navigate to VideoCallScreen
+              Expanded(child: _actionBtn(label: "Start Appt", color: const Color(0xFF10B981), onTap: () async {
+                await viewModel.startAppointment(clinic.id, requestDoc.id);
+                if (context.mounted) {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => VideoCallScreen(
+                    isDoctor: true,
+                    roomPath: requestDoc.reference.path,
+                    durationMinutes: clinic.appointmentDuration ?? 15,
+                    onCallEnd: () => _showEndAppointmentOptions(context, viewModel, clinic.id, requestDoc.id, patientId),
+                  )));
+                }
+              })),
             ],
             if (status == 'in_progress') ...[
               Expanded(child: _actionBtn(label: "End Appointment", color: const Color(0xFFEF4444), onTap: () => _showEndAppointmentOptions(context, viewModel, clinic.id, requestDoc.id, patientId))),

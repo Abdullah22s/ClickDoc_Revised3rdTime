@@ -30,7 +30,6 @@ class OperatorDashboardViewModel extends ChangeNotifier {
   }
 
   void _listenToAppointments() {
-    // Removed the vitalsEntered filter so we can get BOTH Current and Past
     _subscription = _firestore
         .collectionGroup('appointments')
         .where('status', isEqualTo: 'accepted')
@@ -40,20 +39,28 @@ class OperatorDashboardViewModel extends ChangeNotifier {
       final List<Map<String, dynamic>> enrichedList = [];
 
       for (var doc in snapshot.docs) {
+        final path = doc.reference.path;
+
+        // 🛑 NEW FILTER: If this is an online clinic, SKIP IT for the operator
+        if (path.contains('online_clinics')) {
+          continue;
+        }
+
         final data = doc.data() as Map<String, dynamic>;
-        Timestamp? startTimestamp = data['startDateTime'] as Timestamp?;
-        if (startTimestamp == null) continue;
+
+        // Use createdAt as fallback for Physical appointments without startDateTime
+        Timestamp? displayTimestamp = data['startDateTime'] as Timestamp?
+            ?? data['createdAt'] as Timestamp?;
+
+        if (displayTimestamp == null) continue;
 
         final String patientId = data['patientId'] ?? "";
+        String doctorId = "";
 
-        // 🟢 THE FIX: If doctorId isn't explicitly in the document, extract it from the path!
-        String doctorId = data['doctorId'] ?? "";
-        if (doctorId.isEmpty) {
-          final pathSegments = doc.reference.path.split('/');
-          // Path format: doctors/{doctorId}/online_clinics/{clinicId}/appointments/{appId}
-          if (pathSegments.length >= 2 && pathSegments[0] == 'doctors') {
-            doctorId = pathSegments[1];
-          }
+        final pathSegments = path.split('/');
+        int docIndex = pathSegments.indexOf('doctors');
+        if (docIndex != -1 && docIndex + 1 < pathSegments.length) {
+          doctorId = pathSegments[docIndex + 1];
         }
 
         final names = await _fetchNames(doctorId, patientId);
@@ -63,7 +70,7 @@ class OperatorDashboardViewModel extends ChangeNotifier {
           'appointmentRef': doc.reference,
           'doctorName': names['doctorName'],
           'patientName': names['patientName'],
-          'displayStartTime': startTimestamp,
+          'displayStartTime': displayTimestamp,
         });
       }
 
@@ -83,6 +90,7 @@ class OperatorDashboardViewModel extends ChangeNotifier {
       final DateTime startTime = (app['displayStartTime'] as Timestamp).toDate();
       final int difference = startTime.difference(now).inMinutes;
 
+      // Show in queue if it's within 30 mins before or 60 mins after start
       return difference <= 30 && difference > -60;
     }).toList();
 
@@ -93,21 +101,18 @@ class OperatorDashboardViewModel extends ChangeNotifier {
 
       final DateTime startTime = (app['displayStartTime'] as Timestamp).toDate();
 
-      // Match only the Year, Month, and Day
       return startTime.year == _selectedDate.year &&
           startTime.month == _selectedDate.month &&
           startTime.day == _selectedDate.day;
     }).toList();
 
-    // Sort both
+    // Sort both by time
     currentAppointments.sort((a, b) => (a['displayStartTime'] as Timestamp).compareTo(b['displayStartTime'] as Timestamp));
     pastAppointments.sort((a, b) => (b['displayStartTime'] as Timestamp).compareTo(a['displayStartTime'] as Timestamp));
 
     isLoading = false;
     notifyListeners();
   }
-
-  // ... (Keep _fetchNames and submitVitals the same as before) ...
 
   Future<Map<String, String>> _fetchNames(String docId, String patientId) async {
     String drName = "Unknown Doctor";
@@ -146,13 +151,12 @@ class OperatorDashboardViewModel extends ChangeNotifier {
         'vitals': {'bp': bp.trim(), 'temp': temp.trim(), 'spo2': spo2.trim()}
       });
 
-      // 🟢 THE FIX: Manually update the local list immediately so the UI jumps without waiting
+      // Update local state immediately for a smooth UI transition
       final index = _allAppointments.indexWhere((app) => app['appointmentRef'] == appointmentRef);
       if (index != -1) {
         _allAppointments[index]['vitalsEntered'] = true;
       }
 
-      // Force the re-sort and re-filter immediately
       _filterAndSortAppointments();
 
       isSubmitting = false;
@@ -164,6 +168,7 @@ class OperatorDashboardViewModel extends ChangeNotifier {
       return "Error: $e";
     }
   }
+
   @override
   void dispose() {
     _timer?.cancel();

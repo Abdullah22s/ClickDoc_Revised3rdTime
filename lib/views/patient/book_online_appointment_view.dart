@@ -34,7 +34,6 @@ class BookOnlineAppointmentView extends StatelessWidget {
         .doc(clinic.id)
         .collection('appointments')
         .where('patientId', isEqualTo: userId)
-        .where('status', whereIn: ['pending', 'accepted'])
         .get();
 
     if (existingPatientBooking.docs.isNotEmpty) {
@@ -75,7 +74,7 @@ class BookOnlineAppointmentView extends StatelessWidget {
       'patientId': userId,
       'patientReference': referenceNumber,
 
-      // ✅ MUST MATCH PYTHON SCRIPT
+      // ✅ PRESERVED: MUST MATCH PYTHON SCRIPT
       'patient_token': fcmToken,
       'notified': false,
       'reminder_sent': false,
@@ -96,6 +95,8 @@ class BookOnlineAppointmentView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text("Doctor: Dr. ${clinic.doctorName}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 4),
             Text("Department: ${clinic.department}"),
             Text("Time: ${clinic.startTime} - ${clinic.endTime}"),
             Text("Days: ${clinic.days.join(', ')}"),
@@ -145,9 +146,7 @@ class BookOnlineAppointmentView extends StatelessWidget {
                                 doc.data() as Map<String, dynamic>;
                                 return data['start'] == slot.start &&
                                     data['end'] == slot.end &&
-                                    (data['status'] == 'pending' ||
-                                        data['status'] ==
-                                            'accepted');
+                                    data['status'] != 'rejected';
                               }).toList();
 
                               if (matching.isEmpty) {
@@ -176,22 +175,24 @@ class BookOnlineAppointmentView extends StatelessWidget {
                                 );
                               }
 
-                              final status =
-                              (matching.first.data()
-                              as Map<String, dynamic>)['status'];
+                              final status = (matching.first.data() as Map<String, dynamic>)['status'];
 
-                              if (status == 'pending') {
+                              // ✅ UPDATED LOGIC: Specific status texts
+                              if (status == 'accepted' || status == 'in_progress') {
                                 return const Text(
-                                  "Booking in progress",
+                                  "Accepted",
                                   style: TextStyle(
-                                      color: Colors.orange),
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold),
                                 );
                               }
 
                               return const Text(
-                                "Booked",
-                                style:
-                                TextStyle(color: Colors.red),
+                                "Waiting for confirmation",
+                                style: TextStyle(
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
                               );
                             },
                           ),

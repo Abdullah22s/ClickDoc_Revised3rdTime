@@ -7,6 +7,8 @@ import '../../views/patient/patient_physical_opd_view.dart';
 import '../../views/patient/patient_online_doctors_view.dart';
 import '../../views/patient/search_doctor_by_symptom_view.dart';
 import '../../views/patient/patient_prescriptions_view.dart';
+// ✅ NEW IMPORT ADDED
+import '../../views/patient/patient_upcoming_appointments_view.dart';
 
 class PatientDashboardScreen extends StatelessWidget {
   final String userName;
@@ -261,6 +263,20 @@ class PatientDashboardScreen extends StatelessWidget {
       crossAxisSpacing: 16,
       childAspectRatio: 0.95,
       children: [
+        // ✅ NEW: UPCOMING ONLINE APPOINTMENTS
+        _buildPremiumCard(
+          context: context,
+          icon: Icons.online_prediction_rounded,
+          label: "Upcoming Online",
+          subtitle: "Enter vitals",
+          iconColor: const Color(0xFFF97316), // Orange
+          bgColor: const Color(0xFFFFF7ED),
+          shadowColor: const Color(0xFFF97316).withOpacity(0.2),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PatientUpcomingAppointmentsView()),
+          ),
+        ),
         _buildPremiumCard(
           context: context,
           icon: Icons.person_outline,
