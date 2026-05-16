@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -38,6 +39,9 @@ class DoctorPhysicalOpdViewmodel extends ChangeNotifier {
   List<Map<String, String>> previewSlots = [];
   List<Map<String, dynamic>> createdClinics = [];
 
+  Timer? _expiredClinicTimer;
+  bool _isCleaningExpiredClinics = false;
+
   DoctorPhysicalOpdViewmodel() {
     _init();
   }
@@ -58,8 +62,94 @@ class DoctorPhysicalOpdViewmodel extends ChangeNotifier {
     }
 
     await _loadCreatedClinics();
+    _startExpiredClinicAutoCleanup();
+
     loading = false;
     notifyListeners();
+  }
+
+  void _startExpiredClinicAutoCleanup() {
+    _expiredClinicTimer?.cancel();
+
+    _expiredClinicTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
+      await _deleteExpiredClinics();
+    });
+  }
+
+  Future<void> _deleteExpiredClinics({bool refreshList = true}) async {
+    if (_isCleaningExpiredClinics) return;
+    if (doctorId.isEmpty) return;
+
+    _isCleaningExpiredClinics = true;
+
+    try {
+      final now = Timestamp.fromDate(DateTime.now());
+
+      final expiredSnap = await _firestore
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('physical_opds')
+          .where('endDateTime', isLessThanOrEqualTo: now)
+          .get();
+
+      for (final doc in expiredSnap.docs) {
+        await _deleteClinicWithAppointments(doc.reference);
+      }
+
+      if (refreshList) {
+        await _loadCreatedClinics();
+      }
+    } catch (e) {
+      debugPrint("Error deleting expired physical OPDs: $e");
+    } finally {
+      _isCleaningExpiredClinics = false;
+    }
+  }
+
+  Future<void> _deleteClinicWithAppointments(DocumentReference clinicRef) async {
+    while (true) {
+      final appointmentsSnap = await clinicRef
+          .collection('appointments')
+          .limit(400)
+          .get();
+
+      if (appointmentsSnap.docs.isEmpty) break;
+
+      for (final appointmentDoc in appointmentsSnap.docs) {
+        await _deleteAppointmentSubCollections(appointmentDoc.reference);
+      }
+
+      final batch = _firestore.batch();
+
+      for (final appointmentDoc in appointmentsSnap.docs) {
+        batch.delete(appointmentDoc.reference);
+      }
+
+      await batch.commit();
+    }
+
+    await clinicRef.delete();
+  }
+
+  Future<void> _deleteAppointmentSubCollections(DocumentReference appointmentRef) async {
+    final callerCandidates = await appointmentRef.collection('callerCandidates').get();
+    final calleeCandidates = await appointmentRef.collection('calleeCandidates').get();
+
+    if (callerCandidates.docs.isNotEmpty) {
+      final batch = _firestore.batch();
+      for (final doc in callerCandidates.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+
+    if (calleeCandidates.docs.isNotEmpty) {
+      final batch = _firestore.batch();
+      for (final doc in calleeCandidates.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
   }
 
   void setSelectedDate(DateTime date) {
@@ -166,6 +256,8 @@ class DoctorPhysicalOpdViewmodel extends ChangeNotifier {
         return "End time cannot be before start time.";
       }
 
+      await _deleteExpiredClinics(refreshList: false);
+
       final querySnapshot = await _firestore
           .collection('doctors')
           .doc(doctorId)
@@ -229,23 +321,7 @@ class DoctorPhysicalOpdViewmodel extends ChangeNotifier {
   }
 
   Future<void> _loadCreatedClinics() async {
-    final snap = await _firestore
-        .collection('doctors')
-        .doc(doctorId)
-        .collection('physical_opds')
-        .orderBy('createdAt', descending: true)
-        .get();
-
-    final now = DateTime.now();
-    for (var doc in snap.docs) {
-      final data = doc.data();
-      if (data.containsKey('endDateTime')) {
-        final endDateTime = (data['endDateTime'] as Timestamp).toDate();
-        if (endDateTime.isBefore(now)) {
-          await doc.reference.delete();
-        }
-      }
-    }
+    await _deleteExpiredClinics(refreshList: false);
 
     final updatedSnap = await _firestore
         .collection('doctors')
@@ -278,6 +354,7 @@ class DoctorPhysicalOpdViewmodel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _expiredClinicTimer?.cancel();
     feesController.dispose();
     hospitalController.dispose();
     cityController.dispose();

@@ -19,21 +19,43 @@ class PatientUpcomingAppointmentsViewModel extends ChangeNotifier {
     _timer = Timer.periodic(const Duration(minutes: 1), (_) => _filterAppointments());
   }
 
+  bool _isOnlineAppointment(DocumentReference ref) {
+    // Correct online appointment path:
+    // doctors/{doctorId}/online_clinics/{clinicId}/appointments/{appointmentId}
+
+    final pathSegments = ref.path.split('/');
+
+    return pathSegments.contains('online_clinics');
+  }
+
   void _listenToMyAppointments() {
     _subscription = _firestore
         .collectionGroup('appointments')
         .where('patientId', isEqualTo: patientId)
-        .where('status', whereIn: ['accepted', 'in_progress']) // ✅ Listen for both
+        .where('status', whereIn: ['accepted', 'in_progress'])
         .snapshots()
         .listen((snapshot) async {
       final List<Map<String, dynamic>> list = [];
+
       for (var doc in snapshot.docs) {
+        // ✅ IMPORTANT FIX:
+        // Ignore physical OPD appointments here.
+        // This screen is only for online appointments.
+        if (!_isOnlineAppointment(doc.reference)) {
+          continue;
+        }
+
         final data = doc.data();
 
         String doctorName = data['doctorName'] ?? "Doctor";
+
         if (data['doctorName'] == null) {
           final pathSegments = doc.reference.path.split('/');
+
+          // Path:
+          // doctors/{doctorId}/online_clinics/{clinicId}/appointments/{appointmentId}
           final docId = pathSegments[1];
+
           final drDoc = await _firestore.collection('doctors').doc(docId).get();
           doctorName = drDoc.data()?['name'] ?? "Doctor";
         }
@@ -43,6 +65,7 @@ class PatientUpcomingAppointmentsViewModel extends ChangeNotifier {
           'id': doc.id,
           'reference': doc.reference,
           'doctorName': doctorName,
+          'appointmentSource': 'online',
         });
       }
 
@@ -55,13 +78,22 @@ class PatientUpcomingAppointmentsViewModel extends ChangeNotifier {
     final now = DateTime.now();
 
     upcomingAppointments = upcomingAppointments.where((app) {
-      // 1. If session is already in progress, always show it (Join button)
+      // Extra safety check:
+      // Only keep online appointments in this screen.
+      final ref = app['reference'];
+      if (ref is DocumentReference && !_isOnlineAppointment(ref)) {
+        return false;
+      }
+
+      // 1. If session is already in progress, always show it.
       if (app['status'] == 'in_progress') return true;
 
-      // 2. If vitals are entered but status is still 'accepted' (Waiting state)
-      if (app['vitalsEntered'] == true && app['status'] == 'accepted') return true;
+      // 2. If vitals are entered but status is still accepted.
+      if (app['vitalsEntered'] == true && app['status'] == 'accepted') {
+        return true;
+      }
 
-      // 3. If vitals not entered, show within the 30-min window
+      // 3. If vitals not entered, show within the 30-min window.
       final Timestamp? startTs = app['startDateTime'] as Timestamp?;
       if (startTs == null) return true;
 
@@ -81,7 +113,15 @@ class PatientUpcomingAppointmentsViewModel extends ChangeNotifier {
     required String temp,
     required String spo2,
   }) async {
-    if (bp.isEmpty || temp.isEmpty || spo2.isEmpty) return "Please fill all fields";
+    if (bp.isEmpty || temp.isEmpty || spo2.isEmpty) {
+      return "Please fill all fields";
+    }
+
+    // ✅ Safety check:
+    // Do not submit vitals from online upcoming screen to physical appointment.
+    if (!_isOnlineAppointment(ref)) {
+      return "Invalid appointment type for online session.";
+    }
 
     isSubmitting = true;
     notifyListeners();
@@ -89,12 +129,19 @@ class PatientUpcomingAppointmentsViewModel extends ChangeNotifier {
     try {
       await ref.update({
         'vitalsEntered': true,
-        'vitals': {'bp': bp.trim(), 'temp': temp.trim(), 'spo2': spo2.trim()}
+        'vitals': {
+          'bp': bp.trim(),
+          'temp': temp.trim(),
+          'spo2': spo2.trim(),
+        }
       });
+
       isSubmitting = false;
+      notifyListeners();
       return null;
     } catch (e) {
       isSubmitting = false;
+      notifyListeners();
       return e.toString();
     }
   }
