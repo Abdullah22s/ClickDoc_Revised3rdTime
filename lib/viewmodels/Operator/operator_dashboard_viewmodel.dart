@@ -146,15 +146,90 @@ class OperatorDashboardViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final appointmentSnap = await appointmentRef.get();
+
+      if (!appointmentSnap.exists) {
+        isSubmitting = false;
+        notifyListeners();
+        return "Appointment not found.";
+      }
+
+      final appointmentData =
+          appointmentSnap.data() as Map<String, dynamic>? ?? {};
+
+      final String patientId = appointmentData['patientId']?.toString() ?? '';
+
+      if (patientId.isEmpty) {
+        isSubmitting = false;
+        notifyListeners();
+        return "Patient ID not found in appointment.";
+      }
+
+      final pathSegments = appointmentRef.path.split('/');
+
+      String doctorId = '';
+      String clinicId = '';
+
+      final doctorIndex = pathSegments.indexOf('doctors');
+      if (doctorIndex != -1 && doctorIndex + 1 < pathSegments.length) {
+        doctorId = pathSegments[doctorIndex + 1];
+      }
+
+      final physicalOpdIndex = pathSegments.indexOf('physical_opds');
+      if (physicalOpdIndex != -1 && physicalOpdIndex + 1 < pathSegments.length) {
+        clinicId = pathSegments[physicalOpdIndex + 1];
+      }
+
+      String doctorName = "Unknown Doctor";
+
+      if (doctorId.isNotEmpty) {
+        final doctorSnap =
+        await _firestore.collection('doctors').doc(doctorId).get();
+
+        if (doctorSnap.exists) {
+          doctorName = doctorSnap.data()?['name']?.toString() ?? doctorName;
+        }
+      }
+
+      final vitalsMap = {
+        'bp': bp.trim(),
+        'temp': temp.trim(),
+        'spo2': spo2.trim(),
+      };
+
       await appointmentRef.update({
         'vitalsEntered': true,
-        'vitals': {'bp': bp.trim(), 'temp': temp.trim(), 'spo2': spo2.trim()}
+        'vitals': vitalsMap,
+        'vitalsEnteredAt': FieldValue.serverTimestamp(),
       });
 
-      // Update local state immediately for a smooth UI transition
-      final index = _allAppointments.indexWhere((app) => app['appointmentRef'] == appointmentRef);
+      await _firestore
+          .collection('patients')
+          .doc(patientId)
+          .collection('physical_vitals_history')
+          .doc(appointmentRef.id)
+          .set({
+        'appointmentId': appointmentRef.id,
+        'sourceAppointmentPath': appointmentRef.path,
+        'patientId': patientId,
+        'doctorId': doctorId,
+        'doctorName': doctorName,
+        'clinicId': clinicId,
+        'vitals': vitalsMap,
+        'appointmentDate': appointmentData['startDateTime'] ??
+            appointmentData['createdAt'] ??
+            FieldValue.serverTimestamp(),
+        'vitalsEnteredAt': FieldValue.serverTimestamp(),
+        'type': 'physical',
+      }, SetOptions(merge: true));
+
+      final index = _allAppointments.indexWhere(
+            (app) => app['appointmentRef'] == appointmentRef,
+      );
+
       if (index != -1) {
         _allAppointments[index]['vitalsEntered'] = true;
+        _allAppointments[index]['vitals'] = vitalsMap;
       }
 
       _filterAndSortAppointments();

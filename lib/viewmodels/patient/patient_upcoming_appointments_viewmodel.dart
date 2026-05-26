@@ -113,12 +113,12 @@ class PatientUpcomingAppointmentsViewModel extends ChangeNotifier {
     required String temp,
     required String spo2,
   }) async {
-    if (bp.isEmpty || temp.isEmpty || spo2.isEmpty) {
+    if (bp.trim().isEmpty || temp.trim().isEmpty || spo2.trim().isEmpty) {
       return "Please fill all fields";
     }
 
     // ✅ Safety check:
-    // Do not submit vitals from online upcoming screen to physical appointment.
+    // Do not submit online vitals to physical appointment.
     if (!_isOnlineAppointment(ref)) {
       return "Invalid appointment type for online session.";
     }
@@ -127,14 +127,95 @@ class PatientUpcomingAppointmentsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await ref.update({
-        'vitalsEntered': true,
-        'vitals': {
-          'bp': bp.trim(),
-          'temp': temp.trim(),
-          'spo2': spo2.trim(),
+      final appointmentSnap = await ref.get();
+
+      if (!appointmentSnap.exists) {
+        isSubmitting = false;
+        notifyListeners();
+        return "Appointment not found.";
+      }
+
+      final appointmentData =
+          appointmentSnap.data() as Map<String, dynamic>? ?? {};
+
+      final String targetPatientId =
+          appointmentData['patientId']?.toString() ?? patientId;
+
+      final pathSegments = ref.path.split('/');
+
+      String doctorId = '';
+      String clinicId = '';
+
+      final doctorIndex = pathSegments.indexOf('doctors');
+      if (doctorIndex != -1 && doctorIndex + 1 < pathSegments.length) {
+        doctorId = pathSegments[doctorIndex + 1];
+      }
+
+      final onlineClinicIndex = pathSegments.indexOf('online_clinics');
+      if (onlineClinicIndex != -1 && onlineClinicIndex + 1 < pathSegments.length) {
+        clinicId = pathSegments[onlineClinicIndex + 1];
+      }
+
+      String doctorName =
+          appointmentData['doctorName']?.toString() ?? "Unknown Doctor";
+
+      if (doctorName == "Unknown Doctor" && doctorId.isNotEmpty) {
+        final doctorSnap =
+        await _firestore.collection('doctors').doc(doctorId).get();
+
+        if (doctorSnap.exists) {
+          doctorName = doctorSnap.data()?['name']?.toString() ?? doctorName;
         }
+      }
+
+      final vitalsMap = {
+        'bp': bp.trim(),
+        'temp': temp.trim(),
+        'spo2': spo2.trim(),
+      };
+
+      final batch = _firestore.batch();
+
+      // ✅ Update original online appointment document
+      batch.update(ref, {
+        'vitalsEntered': true,
+        'vitals': vitalsMap,
+        'vitalsEnteredAt': FieldValue.serverTimestamp(),
       });
+
+      // ✅ Save permanent online vitals history in patient profile
+      final onlineVitalsHistoryRef = _firestore
+          .collection('patients')
+          .doc(targetPatientId)
+          .collection('online_vitals_history')
+          .doc(ref.id);
+
+      batch.set(
+        onlineVitalsHistoryRef,
+        {
+          'appointmentId': ref.id,
+          'sourceAppointmentPath': ref.path,
+          'patientId': targetPatientId,
+          'doctorId': doctorId,
+          'doctorName': doctorName,
+          'clinicId': clinicId,
+          'vitals': vitalsMap,
+          'appointmentDate': appointmentData['startDateTime'] ??
+              appointmentData['createdAt'] ??
+              FieldValue.serverTimestamp(),
+          'vitalsEnteredAt': FieldValue.serverTimestamp(),
+          'type': 'online',
+        },
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
+
+      final index = upcomingAppointments.indexWhere((app) => app['reference'] == ref);
+      if (index != -1) {
+        upcomingAppointments[index]['vitalsEntered'] = true;
+        upcomingAppointments[index]['vitals'] = vitalsMap;
+      }
 
       isSubmitting = false;
       notifyListeners();

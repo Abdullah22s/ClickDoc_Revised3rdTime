@@ -78,6 +78,27 @@ class PatientProfileViewModel extends ChangeNotifier {
         .orderBy('uploadedAt', descending: true)
         .snapshots();
   }
+  Stream<QuerySnapshot> getPhysicalVitalsHistoryStream() {
+    if (_patientId == null) return const Stream.empty();
+
+    return FirebaseFirestore.instance
+        .collection('patients')
+        .doc(_patientId)
+        .collection('physical_vitals_history')
+        .orderBy('appointmentDate', descending: true)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getOnlineVitalsHistoryStream() {
+    if (_patientId == null) return const Stream.empty();
+
+    return FirebaseFirestore.instance
+        .collection('patients')
+        .doc(_patientId)
+        .collection('online_vitals_history')
+        .orderBy('appointmentDate', descending: true)
+        .snapshots();
+  }
 
   Future<void> uploadReport(String category) async {
     if (_patientId == null) return;
