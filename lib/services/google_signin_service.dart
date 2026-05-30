@@ -1,47 +1,66 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleSignInService {
-  // No persistent instance to ensure fresh account picker
-  GoogleSignIn _createGoogleSignIn() {
-    return GoogleSignIn(
-      scopes: ['email', 'profile'],
-      signInOption: SignInOption.standard, // forces account picker
-    );
-  }
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  /// Signs in with Google and returns Firebase [User] or null if cancelled.
   Future<User?> signInWithGoogle() async {
-    final googleSignIn = _createGoogleSignIn();
     try {
-      final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) return null;
+      // Web
+      if (kIsWeb) {
+        GoogleAuthProvider googleProvider = GoogleAuthProvider();
 
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+
+        final UserCredential userCredential =
+        await _auth.signInWithPopup(googleProvider);
+
+        return userCredential.user;
+      }
+
+      // Android / iOS
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email'],
+      );
+
+      final GoogleSignInAccount? googleUser =
+      await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        return null;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
+
+      final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final userCredential =
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final UserCredential userCredential =
+      await _auth.signInWithCredential(credential);
+
       return userCredential.user;
-    } catch (e) {
-      debugPrint('GoogleSignInService.signInWithGoogle error: $e');
+    } catch (e, stackTrace) {
+      debugPrint('Google Sign-In Error: $e');
+      debugPrint(stackTrace.toString());
       return null;
     }
   }
 
-  /// Sign out Firebase + Google
   Future<void> signOut() async {
     try {
-      await FirebaseAuth.instance.signOut();
-      final googleSignIn = _createGoogleSignIn();
-      await googleSignIn.signOut();
-      // ✅ Do NOT call disconnect() — causes PlatformException
+      await _auth.signOut();
+
+      if (!kIsWeb) {
+        final GoogleSignIn googleSignIn = GoogleSignIn();
+        await googleSignIn.signOut();
+      }
     } catch (e) {
-      debugPrint('GoogleSignInService.signOut error: $e');
+      debugPrint('Sign-out error: $e');
     }
   }
 }
