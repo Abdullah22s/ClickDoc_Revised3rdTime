@@ -13,25 +13,37 @@ exports.deleteExpiredOnlineClinics = onSchedule(
   async () => {
     const now = admin.firestore.Timestamp.now();
 
-    console.log("Checking expired online clinics...");
+    console.log("Checking expired online and physical clinics...");
 
     const doctorsSnap = await db.collection("doctors").get();
 
     for (const doctorDoc of doctorsSnap.docs) {
+      // Delete expired ONLINE clinics
       const onlineClinicsRef = doctorDoc.ref.collection("online_clinics");
 
-      const expiredClinicsSnap = await onlineClinicsRef
+      const expiredOnlineClinicsSnap = await onlineClinicsRef
         .where("endDateTime", "<=", now)
         .get();
 
-      for (const clinicDoc of expiredClinicsSnap.docs) {
-        console.log(`Deleting expired clinic: ${clinicDoc.ref.path}`);
+      for (const clinicDoc of expiredOnlineClinicsSnap.docs) {
+        console.log(`Deleting expired online clinic: ${clinicDoc.ref.path}`);
+        await deleteClinicWithAppointments(clinicDoc.ref);
+      }
 
+      // Delete expired PHYSICAL OPDs
+      const physicalOpdsRef = doctorDoc.ref.collection("physical_opds");
+
+      const expiredPhysicalOpdsSnap = await physicalOpdsRef
+        .where("endDateTime", "<=", now)
+        .get();
+
+      for (const clinicDoc of expiredPhysicalOpdsSnap.docs) {
+        console.log(`Deleting expired physical OPD: ${clinicDoc.ref.path}`);
         await deleteClinicWithAppointments(clinicDoc.ref);
       }
     }
 
-    console.log("Expired online clinic cleanup completed.");
+    console.log("Expired online and physical clinic cleanup completed.");
   }
 );
 
@@ -47,8 +59,13 @@ async function deleteClinicWithAppointments(clinicRef) {
     }
 
     for (const appointmentDoc of appointmentsSnap.docs) {
-      await deleteSubCollection(appointmentDoc.ref.collection("callerCandidates"));
-      await deleteSubCollection(appointmentDoc.ref.collection("calleeCandidates"));
+      await deleteSubCollection(
+        appointmentDoc.ref.collection("callerCandidates")
+      );
+
+      await deleteSubCollection(
+        appointmentDoc.ref.collection("calleeCandidates")
+      );
     }
 
     const batch = db.batch();
