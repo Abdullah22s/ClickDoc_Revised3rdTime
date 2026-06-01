@@ -118,6 +118,13 @@ class DoctorAppointmentsViewModel extends ChangeNotifier {
             'slotEnd': slotEnd,
             'acceptedAt': FieldValue.serverTimestamp(),
             'status': 'active',
+
+            // Added for online observation tracking
+            'type': 'online',
+            'clinicId': clinicId,
+            'appointmentId': appointmentId,
+            'sourceAppointmentPath': docRef.path,
+            'observationSaved': false,
           });
 
           if (phone.isNotEmpty) {
