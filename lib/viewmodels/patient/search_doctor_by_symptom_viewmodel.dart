@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../services/doctor_api_service.dart';
@@ -12,159 +10,223 @@ class SearchDoctorBySymptomViewModel extends ChangeNotifier {
   String? predictedDisease;
   String? predictedDepartment;
 
+  String? modelDisease;
+  double? predictionConfidence;
+  String? predictionAssurityLevel;
+  bool aiUsed = false;
+  String? predictionSource;
+  String? predictionNote;
+  String? predictionDisclaimer;
+
   List<Map<String, dynamic>> matchedDoctors = [];
   List<String> predictedDepartmentMessages = [];
 
   final Map<String, String> selectedClinicType = {};
   TextEditingController messageController = TextEditingController();
 
-  /// 🔑 OPENAI KEY (⚠️ MOVE TO BACKEND IN PRODUCTION)
-  static const String _openAiApiKey = "Open_api_key";
-
-  /// ===============================
-  /// 🤖 ChatGPT Validation
-  /// ===============================
-  Future<bool> _isValidSymptomUsingAI(String text) async {
-    try {
-      final response = await http.post(
-        Uri.parse("https://api.openai.com/v1/chat/completions"),
-        headers: {
-          "Authorization": "Bearer $_openAiApiKey",
-          "Content-Type": "application/json",
-        },
-        body: jsonEncode({
-          "model": "gpt-4o-mini",
-          "messages": [
-            {
-              "role": "system",
-              "content":
-              "You are a medical input validator. Reply ONLY with YES or NO."
-            },
-            {
-              "role": "user",
-              "content":
-              "Is the following text a meaningful symptom written in English or Urdu? Text: \"$text\""
-            }
-          ],
-          "temperature": 0,
-          "max_tokens": 5,
-        }),
-      );
-
-      if (response.statusCode != 200) return false;
-
-      final content =
-      jsonDecode(response.body)['choices'][0]['message']['content']
-          .toString()
-          .toUpperCase();
-
-      return content.contains("YES");
-    } catch (e) {
-      debugPrint("AI validation error: $e");
-      return false;
-    }
-  }
-
-  /// ===============================
-  /// 🩺 Predict Disease & Fetch Doctors
-  /// ===============================
   Future<void> predictAndFetchDoctors() async {
     final text = messageController.text.trim();
-    if (text.isEmpty) return;
 
-    isLoading = true;
-    predictedDisease = null;
-    predictedDepartment = null;
-    matchedDoctors.clear();
-    predictedDepartmentMessages.clear();
-    selectedClinicType.clear();
-    notifyListeners();
-
-    /// 🤖 STEP 1: AI VALIDATION
-    final isValid = await _isValidSymptomUsingAI(text);
-
-    if (!isValid) {
-      isLoading = false;
-
-      predictedDepartmentMessages.add(
-        "Please enter a valid symptom in English or Urdu.",
-      );
-
+    if (text.isEmpty) {
+      predictedDepartmentMessages.clear();
+      predictedDepartmentMessages.add("Please enter your symptoms.");
       notifyListeners();
       return;
     }
 
-    try {
-      /// 2️⃣ Predict disease (your backend)
-      predictedDisease =
-      await DoctorApiService.predictDisease(text);
+    if (text.length < 3) {
+      predictedDepartmentMessages.clear();
+      predictedDepartmentMessages.add("Please enter valid symptoms.");
+      notifyListeners();
+      return;
+    }
 
-      if (predictedDisease == null || predictedDisease!.isEmpty) {
-        isLoading = false;
-        notifyListeners();
+    isLoading = true;
+
+    predictedDisease = null;
+    predictedDepartment = null;
+    modelDisease = null;
+    predictionConfidence = null;
+    predictionAssurityLevel = null;
+    aiUsed = false;
+    predictionSource = null;
+    predictionNote = null;
+    predictionDisclaimer = null;
+
+    matchedDoctors.clear();
+    predictedDepartmentMessages.clear();
+    selectedClinicType.clear();
+
+    notifyListeners();
+
+    try {
+      final predictionResult =
+      await DoctorApiService.predictDiseaseFull(text);
+
+      if (predictionResult == null) {
+        predictedDepartmentMessages.add(
+          "Unable to connect to prediction server. Please try again.",
+        );
         return;
       }
 
-      /// 3️⃣ Map disease → department
-      predictedDepartment =
-          mapDiseaseToDepartment(predictedDisease!);
-
-      /// 4️⃣ Fetch doctors
-      final doctorsSnapshot =
-      await FirebaseFirestore.instance.collection('doctors').get();
-
-      for (var doc in doctorsSnapshot.docs) {
-        final doctorId = doc.id;
-        final doctorData = doc.data();
-
-        bool hasOnline = false;
-        bool hasPhysical = false;
-
-        final physicalSnap = await FirebaseFirestore.instance
-            .collection('doctors')
-            .doc(doctorId)
-            .collection('physical_opds')
-            .where('department', isEqualTo: predictedDepartment)
-            .limit(1)
-            .get();
-
-        if (physicalSnap.docs.isNotEmpty) hasPhysical = true;
-
-        final onlineSnap = await FirebaseFirestore.instance
-            .collection('doctors')
-            .doc(doctorId)
-            .collection('online_clinics')
-            .where('department', isEqualTo: predictedDepartment)
-            .limit(1)
-            .get();
-
-        if (onlineSnap.docs.isNotEmpty) hasOnline = true;
-
-        if (hasOnline || hasPhysical) {
-          matchedDoctors.add({
-            'doctorId': doctorId,
-            'doctorName': doctorData['name'] ?? 'Unknown Doctor',
-            'hasOnline': hasOnline,
-            'hasPhysical': hasPhysical,
-          });
-        }
+      if (predictionResult.status == "invalid") {
+        predictedDepartmentMessages.add(
+          predictionResult.message.isNotEmpty
+              ? predictionResult.message
+              : "Please enter valid medical symptoms.",
+        );
+        return;
       }
 
-      if (matchedDoctors.isEmpty &&
-          predictedDepartment != null) {
+      if (predictionResult.status != "success") {
         predictedDepartmentMessages.add(
-          "You may consult $predictedDepartment.",
+          predictionResult.message.isNotEmpty
+              ? predictionResult.message
+              : "Unable to predict disease. Please try again.",
+        );
+        return;
+      }
+
+      predictedDisease = predictionResult.disease;
+      modelDisease = predictionResult.modelDisease;
+      predictionConfidence = predictionResult.confidencePercent;
+      predictionAssurityLevel = predictionResult.assurityLevel;
+      aiUsed = predictionResult.aiUsed;
+      predictionSource = predictionResult.source;
+      predictionNote = predictionResult.note;
+      predictionDisclaimer = predictionResult.disclaimer;
+
+      if (predictedDisease == null || predictedDisease!.trim().isEmpty) {
+        predictedDepartmentMessages.add(
+          "Unable to predict disease. Please try again.",
+        );
+        return;
+      }
+
+      predictedDepartment = _getDepartmentForDisease(predictedDisease!);
+
+      predictedDepartmentMessages.add(
+        "Predicted disease: $predictedDisease",
+      );
+
+      if (modelDisease != null &&
+          modelDisease!.isNotEmpty &&
+          modelDisease != predictedDisease) {
+        predictedDepartmentMessages.add(
+          "Model prediction was $modelDisease, corrected by AI assistance.",
         );
       }
+
+      if (predictionConfidence != null) {
+        predictedDepartmentMessages.add(
+          "Confidence: ${predictionConfidence!.toStringAsFixed(2)}% ($predictionAssurityLevel)",
+        );
+      }
+
+      if (aiUsed) {
+        predictedDepartmentMessages.add(
+          "AI assistance was used because model confidence was low/medium.",
+        );
+      }
+
+      if (predictionNote != null && predictionNote!.trim().isNotEmpty) {
+        predictedDepartmentMessages.add(predictionNote!);
+      }
+
+      if (predictionDisclaimer != null &&
+          predictionDisclaimer!.trim().isNotEmpty) {
+        predictedDepartmentMessages.add(predictionDisclaimer!);
+      }
+
+      await _fetchMatchedDoctors();
     } catch (e) {
       debugPrint("SearchDoctorBySymptom error: $e");
+
       predictedDisease = null;
       predictedDepartment = null;
       matchedDoctors.clear();
+
+      predictedDepartmentMessages.add(
+        "Something went wrong. Please try again.",
+      );
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  String _getDepartmentForDisease(String disease) {
+    try {
+      final department = mapDiseaseToDepartment(disease).trim();
+
+      if (department.isNotEmpty &&
+          department.toLowerCase() != "unknown" &&
+          department.toLowerCase() != "null") {
+        return department;
+      }
+    } catch (e) {
+      debugPrint("Disease department mapping error: $e");
     }
 
-    isLoading = false;
-    notifyListeners();
+    // Change this only if your Firestore uses another exact department name.
+    return "General Physician";
+  }
+
+  Future<void> _fetchMatchedDoctors() async {
+    if (predictedDepartment == null || predictedDepartment!.isEmpty) {
+      return;
+    }
+
+    final doctorsSnapshot =
+    await FirebaseFirestore.instance.collection('doctors').get();
+
+    for (var doc in doctorsSnapshot.docs) {
+      final doctorId = doc.id;
+      final doctorData = doc.data();
+
+      bool hasOnline = false;
+      bool hasPhysical = false;
+
+      final physicalSnap = await FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('physical_opds')
+          .where('department', isEqualTo: predictedDepartment)
+          .limit(1)
+          .get();
+
+      if (physicalSnap.docs.isNotEmpty) {
+        hasPhysical = true;
+      }
+
+      final onlineSnap = await FirebaseFirestore.instance
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('online_clinics')
+          .where('department', isEqualTo: predictedDepartment)
+          .limit(1)
+          .get();
+
+      if (onlineSnap.docs.isNotEmpty) {
+        hasOnline = true;
+      }
+
+      if (hasOnline || hasPhysical) {
+        matchedDoctors.add({
+          'doctorId': doctorId,
+          'doctorName': doctorData['name'] ?? 'Unknown Doctor',
+          'hasOnline': hasOnline,
+          'hasPhysical': hasPhysical,
+        });
+      }
+    }
+
+    if (matchedDoctors.isEmpty && predictedDepartment != null) {
+      predictedDepartmentMessages.add(
+        "You may consult $predictedDepartment.",
+      );
+    }
   }
 
   @override

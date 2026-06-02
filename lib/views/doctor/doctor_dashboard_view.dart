@@ -7,14 +7,142 @@ import 'doctor_appointments_view.dart'; // Online appointments
 import 'doctor_appointments_physical_view.dart'; // Physical requests
 import 'doctor_current_patients_view.dart';
 
-class DoctorDashboardScreen extends StatelessWidget {
+class DoctorDashboardScreen extends StatefulWidget {
   final DoctorDashboardViewModel viewModel;
 
   const DoctorDashboardScreen({super.key, required this.viewModel});
 
   @override
+  State<DoctorDashboardScreen> createState() => _DoctorDashboardScreenState();
+}
+
+class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
+  bool _trendingPopupShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showTrendingObservationPopup();
+    });
+  }
+
+  Future<void> _showTrendingObservationPopup() async {
+    if (_trendingPopupShown) return;
+
+    _trendingPopupShown = true;
+
+    final trendingObservation =
+    await widget.viewModel.getTrendingObservationLast7Days();
+
+    if (!mounted || trendingObservation == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: Row(
+            children: const [
+              Icon(
+                Icons.trending_up_rounded,
+                color: Color(0xFF2563EB),
+                size: 28,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Trending Observation",
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Most repeated observation in the last 7 days:",
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFBFDBFE),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  trendingObservation.observation,
+                  style: const TextStyle(
+                    color: Color(0xFF1D4ED8),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.analytics_rounded,
+                    color: Color(0xFF475569),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Appeared ${trendingObservation.count} time(s) out of ${trendingObservation.totalObservations} observation(s).",
+                      style: const TextStyle(
+                        color: Color(0xFF475569),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actionsPadding: const EdgeInsets.only(right: 14, bottom: 10),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "OK",
+                style: TextStyle(
+                  color: Color(0xFF2563EB),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final dashboardItems = viewModel.dashboardItems
+    final dashboardItems = widget.viewModel.dashboardItems
         .where((item) => !item.label.toLowerCase().contains('medical info'))
         .toList();
 
@@ -24,7 +152,8 @@ class DoctorDashboardScreen extends StatelessWidget {
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -57,14 +186,18 @@ class DoctorDashboardScreen extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF3B82F6), width: 2.0),
+            border: Border.all(
+              color: const Color(0xFF3B82F6),
+              width: 2.0,
+            ),
           ),
           child: CircleAvatar(
             radius: 22,
             backgroundColor: Colors.white,
-            backgroundImage: viewModel.userPhotoUrl != null
-                ? NetworkImage(viewModel.userPhotoUrl!)
-                : const AssetImage('assets/default_user.png') as ImageProvider,
+            backgroundImage: widget.viewModel.userPhotoUrl != null
+                ? NetworkImage(widget.viewModel.userPhotoUrl!)
+                : const AssetImage('assets/default_user.png')
+            as ImageProvider,
           ),
         ),
         const SizedBox(width: 14),
@@ -81,7 +214,7 @@ class DoctorDashboardScreen extends StatelessWidget {
                 ),
               ),
               Text(
-                "Dr. ${viewModel.userName}",
+                "Dr. ${widget.viewModel.userName}",
                 style: const TextStyle(
                   color: Color(0xFF0F172A),
                   fontSize: 18,
@@ -103,12 +236,20 @@ class DoctorDashboardScreen extends StatelessWidget {
                 color: const Color(0xFFEF4444).withOpacity(0.15),
                 blurRadius: 12,
                 spreadRadius: 2,
-              )
+              ),
             ],
           ),
           child: IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 22),
-            onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false),
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: Color(0xFFEF4444),
+              size: 22,
+            ),
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/login',
+                  (route) => false,
+            ),
           ),
         ),
       ],
@@ -119,6 +260,7 @@ class DoctorDashboardScreen extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         int crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+
         return GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
@@ -129,7 +271,9 @@ class DoctorDashboardScreen extends StatelessWidget {
             mainAxisSpacing: 16,
             childAspectRatio: 0.9,
           ),
-          itemBuilder: (context, index) => _buildPremiumCard(context, items[index]),
+          itemBuilder: (context, index) {
+            return _buildPremiumCard(context, items[index]);
+          },
         );
       },
     );
@@ -163,7 +307,11 @@ class DoctorDashboardScreen extends StatelessWidget {
                 color: theme.bgColor,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(item.icon, size: 28, color: theme.primaryColor),
+              child: Icon(
+                item.icon,
+                size: 28,
+                color: theme.primaryColor,
+              ),
             ),
             const Spacer(),
             Text(
@@ -198,36 +346,42 @@ class DoctorDashboardScreen extends StatelessWidget {
           bgColor: const Color(0xFFEFF6FF),
           shadowColor: const Color(0xFF3B82F6).withOpacity(0.1),
         );
+
       case 'Online Appointments':
         return _CardTheme(
           primaryColor: const Color(0xFFF97316),
           bgColor: const Color(0xFFFFF7ED),
           shadowColor: const Color(0xFFF97316).withOpacity(0.15),
         );
+
       case 'Physical Requests':
         return _CardTheme(
           primaryColor: const Color(0xFF14B8A6),
           bgColor: const Color(0xFFF0FDFA),
           shadowColor: const Color(0xFF14B8A6).withOpacity(0.15),
         );
+
       case 'Physical OPD':
         return _CardTheme(
           primaryColor: const Color(0xFF0EA5E9),
           bgColor: const Color(0xFFF0F9FF),
           shadowColor: const Color(0xFF0EA5E9).withOpacity(0.1),
         );
+
       case 'Online Clinic':
         return _CardTheme(
           primaryColor: const Color(0xFF10B981),
           bgColor: const Color(0xFFECFDF5),
           shadowColor: const Color(0xFF10B981).withOpacity(0.1),
         );
+
       case 'Current Patients':
         return _CardTheme(
           primaryColor: const Color(0xFF8B5CF6),
           bgColor: const Color(0xFFF5F3FF),
           shadowColor: const Color(0xFF8B5CF6).withOpacity(0.1),
         );
+
       default:
         return _CardTheme(
           primaryColor: const Color(0xFF64748B),
@@ -239,19 +393,34 @@ class DoctorDashboardScreen extends StatelessWidget {
 
   String _getSubtitleFor(String label) {
     switch (label) {
-      case 'Profile': return 'Manage account';
-      case 'Online Appointments': return 'Video consults';
-      case 'Physical Requests': return 'Clinic requests';
-      case 'Physical OPD': return 'Visit setup';
-      case 'Online Clinic': return 'Session setup';
-      case 'Current Patients': return 'Active cases';
-      default: return 'Quick access';
+      case 'Profile':
+        return 'Manage account';
+
+      case 'Online Appointments':
+        return 'Video consults';
+
+      case 'Physical Requests':
+        return 'Clinic requests';
+
+      case 'Physical OPD':
+        return 'Visit setup';
+
+      case 'Online Clinic':
+        return 'Session setup';
+
+      case 'Current Patients':
+        return 'Active cases';
+
+      default:
+        return 'Quick access';
     }
   }
 
   void _navigate(BuildContext context, String label) {
     final Map<String, Widget> routes = {
-      'Profile': DoctorProfileScreen(userEmail: viewModel.userEmail),
+      'Profile': DoctorProfileScreen(
+        userEmail: widget.viewModel.userEmail,
+      ),
       'Online Appointments': DoctorAppointmentsScreen(),
       'Physical Requests': const DoctorPhysicalAppointmentsScreen(),
       'Physical OPD': const DoctorPhysicalOpdView(),
@@ -260,12 +429,24 @@ class DoctorDashboardScreen extends StatelessWidget {
     };
 
     if (routes.containsKey(label)) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => routes[label]!));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => routes[label]!,
+        ),
+      );
     }
   }
 }
 
 class _CardTheme {
-  final Color primaryColor, bgColor, shadowColor;
-  _CardTheme({required this.primaryColor, required this.bgColor, required this.shadowColor});
+  final Color primaryColor;
+  final Color bgColor;
+  final Color shadowColor;
+
+  _CardTheme({
+    required this.primaryColor,
+    required this.bgColor,
+    required this.shadowColor,
+  });
 }
