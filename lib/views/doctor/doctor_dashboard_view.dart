@@ -151,27 +151,31 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildModernHeader(context),
-                const SizedBox(height: 40),
-                const Text(
-                  "Overview",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1E293B),
-                    letterSpacing: -0.5,
+          child: Center(
+            child: Container(
+              // Constrain the content width on web screen layouts to keep it clean
+              constraints: const BoxConstraints(maxWidth: 1000),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildModernHeader(context),
+                  const SizedBox(height: 40),
+                  const Text(
+                    "Overview",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1E293B),
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                _buildModernGrid(context, dashboardItems),
-                const SizedBox(height: 30),
-              ],
+                  const SizedBox(height: 20),
+                  _buildModernGrid(context, dashboardItems),
+                  const SizedBox(height: 30),
+                ],
+              ),
             ),
           ),
         ),
@@ -259,7 +263,14 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   Widget _buildModernGrid(BuildContext context, List<dynamic> items) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        int crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+        // Evaluate viewport width constraints for web layouts
+        final bool isWeb = constraints.maxWidth > 600;
+
+        // Dynamic column scaling: 4 columns on large screens, 3 on smaller web windows, 2 for mobile
+        final int crossAxisCount = isWeb ? (constraints.maxWidth > 800 ? 4 : 3) : 2;
+
+        // Adjust aspect ratio so cards stay square-ish and compact on desktop web viewports
+        final double childAspectRatio = isWeb ? 1.15 : 0.9;
 
         return GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
@@ -269,7 +280,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 0.9,
+            childAspectRatio: childAspectRatio,
           ),
           itemBuilder: (context, index) {
             return _buildPremiumCard(context, items[index]);

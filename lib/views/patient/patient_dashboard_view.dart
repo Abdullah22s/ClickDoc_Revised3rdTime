@@ -52,54 +52,58 @@ class PatientDashboardScreen extends StatelessWidget {
                   )
                       : SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24.0, vertical: 16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          /// 👤 FRIENDLY USER HEADER
-                          _buildModernHeader(context, vm),
+                    child: Center(
+                      child: Container(
+                        // Constrain the content width on large screens to keep it elegant
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24.0, vertical: 16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            /// 👤 FRIENDLY USER HEADER
+                            _buildModernHeader(context, vm),
 
-                          const SizedBox(height: 30),
+                            const SizedBox(height: 30),
 
-                          /// 🔴 PREMIUM EMERGENCY SOS BUTTON
-                          _buildEmergencyButton(context, vm),
+                            /// 🔴 PREMIUM EMERGENCY SOS BUTTON
+                            _buildEmergencyButton(context, vm),
 
-                          const SizedBox(height: 32),
+                            const SizedBox(height: 32),
 
-                          const Text(
-                            "Our Services",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          /// 📦 GLOWING FEATURES GRID
-                          _buildServicesGrid(context),
-
-                          const SizedBox(height: 32),
-
-                          /// 🧾 FRIENDLY MEDICAL INFO CARD
-                          if (vm.patientData != null) ...[
                             const Text(
-                              "Your Medical Profile",
+                              "Our Services",
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
                                 color: Color(0xFF0F172A),
+                                letterSpacing: -0.5,
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            _buildMedicalSummaryCard(vm.patientData!),
-                            const SizedBox(height: 30),
-                          ]
-                        ],
+
+                            const SizedBox(height: 16),
+
+                            /// 📦 GLOWING RESPONSIVE FEATURES GRID
+                            _buildServicesGrid(context),
+
+                            const SizedBox(height: 32),
+
+                            /// 🧾 FRIENDLY MEDICAL INFO CARD
+                            if (vm.patientData != null) ...[
+                              const Text(
+                                "Your Medical Profile",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildMedicalSummaryCard(vm.patientData!),
+                              const SizedBox(height: 30),
+                            ]
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -253,98 +257,111 @@ class PatientDashboardScreen extends StatelessWidget {
     );
   }
 
-  /// 🔹 REDESIGNED GLOWING GRID
+  /// 🔹 WEB-ADAPTIVE GLOWING GRID
   Widget _buildServicesGrid(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 0.95,
-      children: [
-        // ✅ NEW: UPCOMING ONLINE APPOINTMENTS
-        _buildPremiumCard(
-          context: context,
-          icon: Icons.online_prediction_rounded,
-          label: "Upcoming Online",
-          subtitle: "Enter vitals",
-          iconColor: const Color(0xFFF97316), // Orange
-          bgColor: const Color(0xFFFFF7ED),
-          shadowColor: const Color(0xFFF97316).withOpacity(0.2),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PatientUpcomingAppointmentsView()),
-          ),
-        ),
-        _buildPremiumCard(
-          context: context,
-          icon: Icons.person_outline,
-          label: "My Profile",
-          subtitle: "Manage account",
-          iconColor: const Color(0xFF3B82F6), // Blue
-          bgColor: const Color(0xFFEFF6FF),
-          shadowColor: const Color(0xFF3B82F6).withOpacity(0.2), // Blue Glow
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => PatientProfileView(userEmail: userEmail)),
-          ),
-        ),
-        _buildPremiumCard(
-          context: context,
-          icon: Icons.local_hospital_outlined,
-          label: "Physical OPDs",
-          subtitle: "Book clinic visit",
-          iconColor: const Color(0xFF14B8A6), // Teal
-          bgColor: const Color(0xFFF0FDFA),
-          shadowColor: const Color(0xFF14B8A6).withOpacity(0.2), // Teal Glow
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PatientPhysicalOpdView()),
-          ),
-        ),
-        _buildPremiumCard(
-          context: context,
-          icon: Icons.videocam_outlined,
-          label: "Online Doctors",
-          subtitle: "Video consults",
-          iconColor: const Color(0xFF10B981), // Emerald
-          bgColor: const Color(0xFFECFDF5),
-          shadowColor: const Color(0xFF10B981).withOpacity(0.2), // Emerald Glow
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PatientOnlineDoctorsView()),
-          ),
-        ),
-        _buildPremiumCard(
-          context: context,
-          icon: Icons.psychology_outlined,
-          label: "Search Symptom",
-          subtitle: "AI health check",
-          iconColor: const Color(0xFF8B5CF6), // Purple
-          bgColor: const Color(0xFFF5F3FF),
-          shadowColor: const Color(0xFF8B5CF6).withOpacity(0.2), // Purple Glow
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const SearchDoctorBySymptomView()),
-          ),
-        ),
-        _buildPremiumCard(
-          context: context,
-          icon: Icons.medication_outlined,
-          label: "Prescriptions",
-          subtitle: "View medications",
-          iconColor: const Color(0xFF6366F1), // Indigo
-          bgColor: const Color(0xFFEEF2FF),
-          shadowColor: const Color(0xFF6366F1).withOpacity(0.2), // Indigo Glow
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => PatientPrescriptionsView(userEmail: userEmail)),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Check if viewport qualifies as desktop/web width
+        final bool isWeb = constraints.maxWidth > 600;
+
+        // Web gets up to 4 or 3 items per row; mobile stays locked at exactly 2
+        final int crossAxisCount = isWeb ? (constraints.maxWidth > 800 ? 4 : 3) : 2;
+
+        // Adjust aspect ratio to keep cards elegantly sized and square-ish on Web
+        final double childAspectRatio = isWeb ? 1.15 : 0.95;
+
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: childAspectRatio,
+          children: [
+            // ✅ NEW: UPCOMING ONLINE APPOINTMENTS
+            _buildPremiumCard(
+              context: context,
+              icon: Icons.online_prediction_rounded,
+              label: "Upcoming Online",
+              subtitle: "Enter vitals",
+              iconColor: const Color(0xFFF97316), // Orange
+              bgColor: const Color(0xFFFFF7ED),
+              shadowColor: const Color(0xFFF97316).withOpacity(0.2),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PatientUpcomingAppointmentsView()),
+              ),
+            ),
+            _buildPremiumCard(
+              context: context,
+              icon: Icons.person_outline,
+              label: "My Profile",
+              subtitle: "Manage account",
+              iconColor: const Color(0xFF3B82F6), // Blue
+              bgColor: const Color(0xFFEFF6FF),
+              shadowColor: const Color(0xFF3B82F6).withOpacity(0.2), // Blue Glow
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => PatientProfileView(userEmail: userEmail)),
+              ),
+            ),
+            _buildPremiumCard(
+              context: context,
+              icon: Icons.local_hospital_outlined,
+              label: "Physical OPDs",
+              subtitle: "Book clinic visit",
+              iconColor: const Color(0xFF14B8A6), // Teal
+              bgColor: const Color(0xFFF0FDFA),
+              shadowColor: const Color(0xFF14B8A6).withOpacity(0.2), // Teal Glow
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PatientPhysicalOpdView()),
+              ),
+            ),
+            _buildPremiumCard(
+              context: context,
+              icon: Icons.videocam_outlined,
+              label: "Online Doctors",
+              subtitle: "Video consults",
+              iconColor: const Color(0xFF10B981), // Emerald
+              bgColor: const Color(0xFFECFDF5),
+              shadowColor: const Color(0xFF10B981).withOpacity(0.2), // Emerald Glow
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PatientOnlineDoctorsView()),
+              ),
+            ),
+            _buildPremiumCard(
+              context: context,
+              icon: Icons.psychology_outlined,
+              label: "Search Symptom",
+              subtitle: "AI health check",
+              iconColor: const Color(0xFF8B5CF6), // Purple
+              bgColor: const Color(0xFFF5F3FF),
+              shadowColor: const Color(0xFF8B5CF6).withOpacity(0.2), // Purple Glow
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SearchDoctorBySymptomView()),
+              ),
+            ),
+            _buildPremiumCard(
+              context: context,
+              icon: Icons.medication_outlined,
+              label: "Prescriptions",
+              subtitle: "View medications",
+              iconColor: const Color(0xFF6366F1), // Indigo
+              bgColor: const Color(0xFFEEF2FF),
+              shadowColor: const Color(0xFF6366F1).withOpacity(0.2), // Indigo Glow
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => PatientPrescriptionsView(userEmail: userEmail)),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

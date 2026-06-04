@@ -48,7 +48,6 @@ dependencies:
   just_audio: ^0.9.40
   file_picker: ^8.1.0
 
-
 dependency_overrides:
   # ✅ Force the interface to a version that RecordLinux actually supports
   record_platform_interface: 1.1.0
@@ -58,11 +57,22 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
-
+  # ✅ FIXED: The assets block must be nested precisely under the flutter block!
   assets:
     - assets/images/medical-assistance.png
+    - assets/images/StartLogo.png
     - assets/symptom_department_map.json
+    - assets/images/android_light_rd_na@4x.png
     - .env
+
+# ✅ FIXED: Kept clean, distinct and separated at the very bottom
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/medical-assistance.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/StartLogo.png"

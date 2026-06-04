@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Imported kIsWeb to detect platform
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -179,7 +180,13 @@ class _LoginScreenState extends State<LoginScreen> {
       height: 58,
       child: ElevatedButton.icon(
         onPressed: _handleSignIn,
-        icon: Image.network(
+        // ✅ DYNAMIC LOGO SWITCH: Uses local file asset on web, original URL on mobile devices
+        icon: kIsWeb
+            ? Image.asset(
+          'assets/images/android_light_rd_na@4x.png',
+          height: 24,
+        )
+            : Image.network(
           'https://developers.google.com/identity/images/g-logo.png',
           height: 24,
         ),

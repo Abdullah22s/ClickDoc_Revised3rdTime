@@ -26,57 +26,75 @@ class RoleSelectionScreen extends StatelessWidget {
                 ),
               ],
             ),
-            body: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hello, ${userName ?? 'User'} 👋',
-                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('How would you like to use ClickDoc today?',
-                      style: TextStyle(fontSize: 16, color: Colors.black54)),
-                  const SizedBox(height: 32),
-                  Expanded(
-                    child: GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      children: [
-                        _roleCard(
-                          context,
-                          title: "Doctor",
-                          icon: Icons.medical_services_rounded,
-                          color: const Color(0xFF1976D2),
-                          onTap: () => vm.handleDoctorSelection(context),
-                        ),
-                        _roleCard(
-                          context,
-                          title: "Patient",
-                          icon: Icons.person_rounded,
-                          color: const Color(0xFF43A047),
-                          onTap: () => vm.handlePatientSelection(context, userName),
-                        ),
-                        _roleCard(
-                          context,
-                          title: "Ambulance",
-                          icon: Icons.local_shipping_rounded,
-                          color: const Color(0xFFD32F2F),
-                          onTap: () => vm.handleAmbulanceSelection(context),
-                        ),
-                        _roleCard(
-                          context,
-                          title: "Operator",
-                          icon: Icons.support_agent_rounded,
-                          color: const Color(0xFFFB8C00),
-                          onTap: () => vm.handleOperatorSelection(context),
-                        ),
-                      ],
+            body: Center(
+              child: Container(
+                // Keeps the layout beautifully centered and compact on desktop/web
+                constraints: const BoxConstraints(maxWidth: 900),
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hello, ${userName ?? 'User'} 👋',
+                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    const Text('How would you like to use ClickDoc today?',
+                        style: TextStyle(fontSize: 16, color: Colors.black54)),
+                    const SizedBox(height: 32),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          // Detect web/desktop viewport widths
+                          final bool isWeb = constraints.maxWidth > 600;
+
+                          // Web expands cleanly to 4 columns; mobile locks to your original 2 columns
+                          final int crossAxisCount = isWeb ? 4 : 2;
+
+                          // Adjust aspect ratio dynamically to keep web cards sleek and well proportioned
+                          final double childAspectRatio = isWeb ? 1.1 : 1.0;
+
+                          return GridView.count(
+                            crossAxisCount: crossAxisCount,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: childAspectRatio,
+                            children: [
+                              _roleCard(
+                                context,
+                                title: "Doctor",
+                                icon: Icons.medical_services_rounded,
+                                color: const Color(0xFF1976D2),
+                                onTap: () => vm.handleDoctorSelection(context),
+                              ),
+                              _roleCard(
+                                context,
+                                title: "Patient",
+                                icon: Icons.person_rounded,
+                                color: const Color(0xFF43A047),
+                                onTap: () => vm.handlePatientSelection(context, userName),
+                              ),
+                              _roleCard(
+                                context,
+                                title: "Ambulance",
+                                icon: Icons.local_shipping_rounded,
+                                color: const Color(0xFFD32F2F),
+                                onTap: () => vm.handleAmbulanceSelection(context),
+                              ),
+                              _roleCard(
+                                context,
+                                title: "Operator",
+                                icon: Icons.support_agent_rounded,
+                                color: const Color(0xFFFB8C00),
+                                onTap: () => vm.handleOperatorSelection(context),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
