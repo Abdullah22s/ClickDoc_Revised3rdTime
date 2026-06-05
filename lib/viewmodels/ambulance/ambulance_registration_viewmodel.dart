@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../views/ambulance/ambulance_dashboard_view.dart';
 import '../../services/ambulance_location_service.dart';
+import '../../services/notification_service.dart';
 
 class AmbulanceRegistrationViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -58,6 +59,11 @@ class AmbulanceRegistrationViewModel extends ChangeNotifier {
       });
 
       final ambulanceId = docRef.id;
+
+      await NotificationService.saveTokenForRole(
+        collection: 'ambulances',
+        docId: ambulanceId,
+      );
 
       /// 💾 STEP 4 FIX: STORE LOCALLY (IMPORTANT FOR BACKGROUND TRACKING)
       final prefs = await SharedPreferences.getInstance();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/notification_service.dart';
 
 class OperatorRegistrationViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -16,13 +17,18 @@ class OperatorRegistrationViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _firestore.collection('operators').add({
+      final docRef = await _firestore.collection('operators').add({
         'name': name.trim(),
         'email': email.trim(),
         'role': 'operator',
         'registeredAt': FieldValue.serverTimestamp(),
         'status': 'active', // Default status
       });
+
+      await NotificationService.saveTokenForRole(
+        collection: 'operators',
+        docId: docRef.id,
+      );
 
       _isSaving = false;
       notifyListeners();

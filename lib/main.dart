@@ -5,6 +5,7 @@ import 'views/auth/login_view.dart';
 import 'views/auth/welcome_view.dart';
 import 'views/auth/role_selection_view.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +14,7 @@ void main() async {
   );
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  await NotificationService.initialize();
   runApp(const MyApp());
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/doctor/doctor_registration_model.dart';
+import '../../services/notification_service.dart';
 
 class DoctorRegistrationViewModel extends ChangeNotifier {
   bool isSaving = false;
@@ -33,6 +34,11 @@ class DoctorRegistrationViewModel extends ChangeNotifier {
           .collection('doctors')
           .doc(user.uid)
           .set(doctor.toMap());
+
+      await NotificationService.saveTokenForRole(
+        collection: 'doctors',
+        docId: user.uid,
+      );
 
       isSaving = false;
       notifyListeners();

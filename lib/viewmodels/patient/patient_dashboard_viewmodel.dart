@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -190,12 +192,17 @@ class PatientDashboardViewModel extends ChangeNotifier {
         }
       }
 
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final patientToken = await FirebaseMessaging.instance.getToken();
+
       final docRef = await FirebaseFirestore.instance
           .collection('emergency_requests')
           .add({
         "patientName": patientData?['name'] ?? userName,
         "phone": patientData?['phoneNumber'] ?? userEmail,
+        "patientId": currentUser?.uid,
         "patientEmail": userEmail,
+        "patient_token": patientToken,
         "lat": position.latitude,
         "lng": position.longitude,
         "audioUrl": audioUrl,

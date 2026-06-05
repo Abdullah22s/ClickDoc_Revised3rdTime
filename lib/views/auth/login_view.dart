@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Imported kIsWeb to detect platform
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -10,6 +9,7 @@ import 'package:clickdoc1/views/doctor/doctor_dashboard_view.dart';
 import 'package:clickdoc1/viewmodels/doctor/doctor_dashboard_viewmodel.dart';
 import 'package:clickdoc1/views/ambulance/ambulance_dashboard_view.dart';
 import 'package:clickdoc1/views/Operator/operator_dashboard_view.dart'; // ✅ Ensure path casing matches your folder
+import '../../services/notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -48,6 +48,10 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
 
       if (doctorQuery.docs.isNotEmpty) {
+        await NotificationService.saveTokenForRole(
+          collection: 'doctors',
+          docId: doctorQuery.docs.first.id,
+        );
         final viewModel = DoctorDashboardViewModel(
           userName: name,
           userEmail: email,
@@ -64,6 +68,10 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
 
       if (ambulanceQuery.docs.isNotEmpty) {
+        await NotificationService.saveTokenForRole(
+          collection: 'ambulances',
+          docId: ambulanceQuery.docs.first.id,
+        );
         _navigateTo(AmbulanceDashboardScreen(ambulanceEmail: email));
         return;
       }
@@ -75,6 +83,10 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
 
       if (operatorQuery.docs.isNotEmpty) {
+        await NotificationService.saveTokenForRole(
+          collection: 'operators',
+          docId: operatorQuery.docs.first.id,
+        );
         // ✅ FIX: Changed 'operatorEmail: operatorEmail' to 'operatorEmail: email'
         // ✅ FIX: Removed 'const' because 'email' is a dynamic value
         _navigateTo(OperatorDashboardScreen(operatorEmail: email));
@@ -84,6 +96,10 @@ class _LoginScreenState extends State<LoginScreen> {
       // ✅ Check patient
       final patientDoc = await firestore.collection('patients').doc(uid).get();
       if (patientDoc.exists) {
+        await NotificationService.saveTokenForRole(
+          collection: 'patients',
+          docId: uid,
+        );
         _navigateTo(PatientDashboardScreen(
           userName: patientDoc["name"] ?? name,
           userEmail: email,
@@ -180,13 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
       height: 58,
       child: ElevatedButton.icon(
         onPressed: _handleSignIn,
-        // ✅ DYNAMIC LOGO SWITCH: Uses local file asset on web, original URL on mobile devices
-        icon: kIsWeb
-            ? Image.asset(
-          'assets/images/android_light_rd_na@4x.png',
-          height: 24,
-        )
-            : Image.network(
+        icon: Image.network(
           'https://developers.google.com/identity/images/g-logo.png',
           height: 24,
         ),

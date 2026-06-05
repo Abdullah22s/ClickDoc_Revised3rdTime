@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/patient/patient_form_model.dart';
+import '../../services/notification_service.dart';
 
 class PatientFormViewModel extends ChangeNotifier {
   /// Controllers
@@ -102,6 +103,11 @@ class PatientFormViewModel extends ChangeNotifier {
           .collection('patients')
           .doc(user.uid)
           .set(patient.toMap());
+
+      await NotificationService.saveTokenForRole(
+        collection: 'patients',
+        docId: user.uid,
+      );
 
     } catch (e) {
       ScaffoldMessenger.of(context)
