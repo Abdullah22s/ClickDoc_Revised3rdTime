@@ -73,6 +73,6 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/images/medical-assistance.png"
+  image_path: "assets/images/StartLogo.png"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/StartLogo.png"
