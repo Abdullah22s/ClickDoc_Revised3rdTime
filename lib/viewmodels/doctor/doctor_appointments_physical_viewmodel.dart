@@ -96,20 +96,210 @@ class DoctorPhysicalAppointmentsViewModel extends ChangeNotifier {
     required String clinicId,
     required String appointmentId,
     required String patientId,
+    required String observationText,
     String? prescriptionText,
     File? prescriptionImageFile,
   }) async {
-    // Logic for ending appointment and uploading Rx (Exact same as Online)
-    // ... [Rest of endAppointment logic remains identical to your provided code]
-    await _firestore
+    final cleanObservation = observationText.trim();
+    final cleanPrescription = prescriptionText?.trim() ?? '';
+
+    if (cleanObservation.isEmpty) {
+      throw Exception("Observation is required before ending appointment.");
+    }
+
+    final appointmentRef = _firestore
         .collection('doctors')
         .doc(doctorId)
         .collection('physical_opds')
         .doc(clinicId)
         .collection('appointments')
-        .doc(appointmentId)
-        .delete();
-    notifyListeners();
+        .doc(appointmentId);
+
+    try {
+      String? prescriptionImageUrl;
+
+      if (prescriptionImageFile != null) {
+        debugPrint("Starting physical prescription image upload...");
+        final fileName = 'physical_rx_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('prescriptions')
+            .child(patientId)
+            .child(fileName);
+
+        final uploadTask = await storageRef.putFile(
+          prescriptionImageFile,
+          SettableMetadata(contentType: 'image/jpeg'),
+        ).timeout(const Duration(seconds: 30));
+
+        prescriptionImageUrl = await uploadTask.ref.getDownloadURL();
+        debugPrint("✅ Physical prescription upload successful: $prescriptionImageUrl");
+      }
+
+      final appointmentDoc = await appointmentRef.get();
+      final appointmentData =
+          appointmentDoc.data() as Map<String, dynamic>? ?? {};
+
+      final clinicDoc = await _firestore
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('physical_opds')
+          .doc(clinicId)
+          .get();
+      final clinicData = clinicDoc.data() ?? {};
+
+      final patientDoc = await _firestore.collection('patients').doc(patientId).get();
+      final patientData = patientDoc.data() ?? {};
+
+      final doctorDoc = await _firestore.collection('doctors').doc(doctorId).get();
+      final doctorData = doctorDoc.data() ?? {};
+
+      final String doctorName = doctorData['name']?.toString() ?? 'Unknown Doctor';
+      final String referenceNumber = patientData['referenceNumber']?.toString() ?? '';
+      final now = FieldValue.serverTimestamp();
+      final sourcePath = appointmentRef.path;
+
+      final batch = _firestore.batch();
+
+      // 1. Save physical observation permanently.
+      final observationHistoryRef = _firestore
+          .collection('patients')
+          .doc(patientId)
+          .collection('physical_observations_history')
+          .doc(appointmentId);
+
+      batch.set(
+        observationHistoryRef,
+        {
+          'doctorId': doctorId,
+          'doctorName': doctorName,
+          'patientId': patientId,
+          'clinicId': clinicId,
+          'appointmentId': appointmentId,
+          'sourceAppointmentPath': sourcePath,
+          'type': 'physical',
+          'observation': cleanObservation,
+          'prescriptionText': cleanPrescription,
+          'prescriptionImageUrl': prescriptionImageUrl,
+          'createdAt': now,
+          'appointmentDate': appointmentData['startDateTime'] ??
+              clinicData['startDateTime'] ??
+              appointmentData['createdAt'] ??
+              now,
+        },
+        SetOptions(merge: true),
+      );
+
+      // 2. Also merge observation into physical vitals history
+      // so patient profile/history can show appointment notes with vitals later.
+      final vitalsHistoryRef = _firestore
+          .collection('patients')
+          .doc(patientId)
+          .collection('physical_vitals_history')
+          .doc(appointmentId);
+
+      batch.set(
+        vitalsHistoryRef,
+        {
+          'doctorId': doctorId,
+          'doctorName': doctorName,
+          'patientId': patientId,
+          'clinicId': clinicId,
+          'appointmentId': appointmentId,
+          'sourceAppointmentPath': sourcePath,
+          'type': 'physical',
+          'observationSaved': true,
+          'observation': cleanObservation,
+          'prescriptionText': cleanPrescription,
+          'prescriptionImageUrl': prescriptionImageUrl,
+          'observationSavedAt': now,
+        },
+        SetOptions(merge: true),
+      );
+
+      // 3. Prescription is optional. Save it only if text or image exists.
+      if (cleanPrescription.isNotEmpty || prescriptionImageUrl != null) {
+        final prescriptionRef = _firestore
+            .collection('patients')
+            .doc(patientId)
+            .collection('prescriptions')
+            .doc('physical_$appointmentId');
+
+        batch.set(
+          prescriptionRef,
+          {
+            'doctorId': doctorId,
+            'doctorName': doctorName,
+            'patientId': patientId,
+            'clinicId': clinicId,
+            'appointmentId': appointmentId,
+            'sourceAppointmentPath': sourcePath,
+            'type': 'physical',
+            'createdAt': now,
+            'prescriptionText': cleanPrescription.isEmpty ? null : cleanPrescription,
+            'prescriptionImageUrl': prescriptionImageUrl,
+            'observation': cleanObservation,
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      // 4. Update/create doctor-patient history record for later doctor-side history.
+      final historySnapshot = await _firestore
+          .collection('doctor_patient_history')
+          .where('sourceAppointmentPath', isEqualTo: sourcePath)
+          .limit(1)
+          .get();
+
+      final historyData = {
+        'doctorId': doctorId,
+        'patientId': patientId,
+        'referenceNumber': referenceNumber,
+        'department': clinicData['department'] ?? appointmentData['department'] ?? 'General',
+        'appointmentDate': appointmentData['startDateTime'] ??
+            clinicData['startDateTime'] ??
+            appointmentData['createdAt'] ??
+            now,
+        'slotStart': appointmentData['start'],
+        'slotEnd': appointmentData['end'],
+        'status': 'completed',
+        'type': 'physical',
+        'clinicId': clinicId,
+        'appointmentId': appointmentId,
+        'sourceAppointmentPath': sourcePath,
+        'observationSaved': true,
+        'observation': cleanObservation,
+        'prescriptionText': cleanPrescription,
+        'prescriptionImageUrl': prescriptionImageUrl,
+        'observationSavedAt': now,
+      };
+
+      if (historySnapshot.docs.isEmpty) {
+        batch.set(
+          _firestore.collection('doctor_patient_history').doc('physical_$appointmentId'),
+          {
+            ...historyData,
+            'acceptedAt': appointmentData['acceptedAt'] ?? now,
+          },
+          SetOptions(merge: true),
+        );
+      } else {
+        batch.set(
+          historySnapshot.docs.first.reference,
+          historyData,
+          SetOptions(merge: true),
+        );
+      }
+
+      // 5. End appointment by removing it from active physical appointments.
+      batch.delete(appointmentRef);
+
+      await batch.commit();
+      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ Error in physical endAppointment: $e");
+      rethrow;
+    }
   }
 
   Future<bool> _sendSms({required String phone, required String message}) async {
